@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QDialog, QProgressBar, QVBoxLayout
 class RunProviderAllProgressDialog(QDialog):
     def __init__(self, max_num, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Progress")
+        self.setWindowTitle("Run Provider All")
         self.setMinimumSize(300, 100)
         self.setMaximumSize(300, 100)
 

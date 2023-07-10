@@ -139,7 +139,7 @@ class Ui_MainWindow(object):
         self.button_reload_provider.setText(_translate("MainWindow", "reload provider list"))
         self.button_undo.setText(_translate("MainWindow", "undo"))
         self.button_previous.setText(_translate("MainWindow", "previous image"))
-        self.label_2.setText(_translate("MainWindow", "当前进度："))
+        self.label_2.setText(_translate("MainWindow", "Progress:"))
         self.label_total.setText(_translate("MainWindow", "/0"))
         self.button_next.setText(_translate("MainWindow", "next image"))
         self.button_redo.setText(_translate("MainWindow", "redo"))

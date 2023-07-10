@@ -10,21 +10,18 @@ class DetectAnnoProvider(object):
         self.parent = parent
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-101")
         self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-101")
-        keep_label_text, ok = QInputDialog.getText(parent, '输入', '请输入需要保留的标签，以空格分隔')
+        keep_label_text, ok = QInputDialog.getText(parent, 'Input', 'Please input labels to keep, separated by ;, for example: 0;1;2')
         if not ok:
             keep_label_text = ""
-        self.keep_labels = keep_label_text.split(" ")
+        self.keep_labels = keep_label_text.split(";")
         self.text_template = ""
-        self.text_template, ok = QInputDialog.getText(parent, '输入', '请输入文本模板，使用{score}和{label}表示分数和标签，例如：{label} {score:.2%}')
+        self.text_template, ok = QInputDialog.getText(parent, 'Input', 'Please input text template, use score and label for substitution, for example: {score:.2f} {label}')
         if not ok:
             self.text_template = ""
 
     def run(self, image: Image.Image, annotation_type: str, show_text: bool):
         inputs = self.processor(images=image, return_tensors="pt")
         outputs = self.model(**inputs)
-
-        # convert outputs (bounding boxes and class logits) to COCO API
-        # let's only keep detections with score > 0.9
         target_sizes = torch.tensor([image.size[::-1]])
         results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes, threshold=0.9)[0]
 

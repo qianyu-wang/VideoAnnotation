@@ -22,7 +22,6 @@ class AnnoLabel(QLabel):
         painter = QPainter(self)
 
         if self.current_pos is not None:
-            # 绘制鼠标位置，从鼠标位置向四周画十字虚线
             pen = QPen()
             pen.setWidth(3)
             pen.setColor(QColor(255, 255, 255, 128))
@@ -32,7 +31,6 @@ class AnnoLabel(QLabel):
             painter.drawLine(self.current_pos.x(), 0, self.current_pos.x(), self.height())
 
         if self.annotations is not None and len(self.annotations) > 0:
-            # 绘制历史标注
             pen = QPen()
             pen.setWidth(3)
             pen.setColor(QColor(0, 255, 0))
@@ -40,7 +38,6 @@ class AnnoLabel(QLabel):
             for annotation in self.annotations:
                 self.paint_annotation(painter, annotation)
         if self.annotation is not None:
-            # 绘制正在标注的标注
             pen = QPen()
             pen.setWidth(3)
             pen.setColor(QColor(255, 0, 0))
@@ -76,7 +73,6 @@ class AnnoLabel(QLabel):
             self.annotation['x2'] = x
             self.annotation['y2'] = y
             if self.annotation['type'] != 'point':
-                # 如果两个点距离太近，就不要这个标注了
                 w = int(self.annotation['x2'] * self.width()) - int(self.annotation['x'] * self.width())
                 h = int(self.annotation['y2'] * self.height()) - int(self.annotation['y'] * self.height())
                 if math.sqrt(w ** 2 + h ** 2) < 5:
@@ -86,7 +82,7 @@ class AnnoLabel(QLabel):
                     self.annotation['x'], self.annotation['x2'] = sorted([self.annotation['x'], self.annotation['x2']])
                     self.annotation['y'], self.annotation['y2'] = sorted([self.annotation['y'], self.annotation['y2']])
                 if self.show_text or event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-                    text, ok = QInputDialog.getText(self, "输入标注文字", "标注文字")
+                    text, ok = QInputDialog.getText(self, "Input", "Please input text")
                     if ok:
                         self.annotation['text'] = text
                 self.annotations.append(self.annotation)
@@ -102,7 +98,6 @@ class AnnoLabel(QLabel):
                 nearest = None
                 nearest_d = float('inf')
                 for i, annotation in enumerate(self.annotations):
-                    # 寻找最近的标注，删除它
                     if annotation['type'] == 'point':
                         anno_x = int(annotation['x2'] * self.width())
                         anno_y = int(annotation['y2'] * self.height())
@@ -192,8 +187,7 @@ class AnnoLabel(QLabel):
         if annotation['type'] == 'point':
             painter.drawPoint(x2, y2)
         elif annotation['type'] == 'circle':
-            radius = int(math.sqrt((x2 - x) ** 2 + (y2 - y) ** 2))
-            painter.drawEllipse(x, y, radius, radius)
+            painter.drawEllipse(x, y, x2 - x, y2 - y)
         elif annotation['type'] == 'rectangle':
             painter.drawRect(QRect(x, y, x2 - x, y2 - y))
         if 'text' in annotation and annotation['text'] != '':

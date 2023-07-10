@@ -155,7 +155,7 @@
       <item>
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>当前进度：</string>
+         <string>Progress:</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>

@@ -130,7 +130,7 @@ class VideoAnnotationTool(QMainWindow):
 
     def load_provider_list(self):
         self.ui.combo_anno_provider.clear()
-        self.ui.combo_anno_provider.addItem("无")
+        self.ui.combo_anno_provider.addItem("")
         for provider_path in (Path(__file__).parent / "anno_provider").iterdir():
             if provider_path.is_file():
                 self.ui.combo_anno_provider.addItem(provider_path.stem)
@@ -146,37 +146,39 @@ class VideoAnnotationTool(QMainWindow):
             image_provider = VideoProvider(str(self.file_path))
             image_writer = VideoWriter(str(self.file_path.parent / f"{self.file_path.stem}_render{self.file_path.suffix}"), str(self.file_path))
         else:
-            QMessageBox.critical(self, '错误', '不支持的文件格式')
+            QMessageBox.critical(self, 'Error', 'Unsupported file format')
             return
         Export(image_provider, image_writer, self.annotation_dir, self)
-        QMessageBox.information(self, '提示', f'渲染完成：{image_writer.filename}')
+        QMessageBox.information(self, 'Information', f'Export to {image_writer.filename} finished.')
 
-    def run_provider(self):
+    def load_provider(self):
         provider_name = self.ui.combo_anno_provider.currentText()
+        if provider_name == "":
+            QMessageBox.critical(self, 'Error', 'Please select a anno provider')
+            return False
         if self.anno_provider_name != provider_name or self.anno_provider is None:
             get_provider = __import__(f"anno_provider.{provider_name}", fromlist=['get_provider']).get_provider
             self.anno_provider = get_provider(self)
         if self.anno_provider is None:
-            QMessageBox.critical(self, '错误', f'无法加载anno provider：{provider_name}')
-            return
+            QMessageBox.critical(self, 'Error', f'Cannot load anno provider: {self.anno_provider_name}')
+            return False
         self.anno_provider_name = provider_name
+        return True
+
+    def run_provider(self):
+        if not self.load_provider():
+            return
         provider = RunProvider(self.image_provider.get_image(), self.anno_provider, self.ui.combo_type.currentText(), self.ui.check_text.isChecked(), self)
         if provider.annotations is not None:
             self.ui.label_anno.add_annotations(provider.annotations)
             self.ui.label_anno.update()
 
     def run_provider_all(self):
-        provider_name = self.ui.combo_anno_provider.currentText()
-        if self.anno_provider_name != provider_name or self.anno_provider is None:
-            get_provider = __import__(f"anno_provider.{provider_name}", fromlist=['get_provider']).get_provider
-            self.anno_provider = get_provider(self)
-        if self.anno_provider is None:
-            QMessageBox.critical(self, '错误', f'无法加载anno provider：{provider_name}')
+        if not self.load_provider():
             return
-        self.anno_provider_name = provider_name
         RunProviderAll(self.image_provider, self.anno_provider, self.annotation_dir, self.ui.combo_type.currentText(), self.ui.check_text.isChecked(), self)
         self.load_image()
-        QMessageBox.information(self, '提示', f'运行完成')
+        QMessageBox.information(self, 'Information', f'Run provider {self.anno_provider_name} finished')
 
     def type_changed(self):
         self.ui.label_anno.annotation_type = self.ui.combo_type.currentText()
@@ -198,7 +200,7 @@ class VideoAnnotationTool(QMainWindow):
 
     def select_file(self):
         suffixes = ' '.join([f"*.{suffix}" for suffix in image_suffix + video_suffix])
-        filename = QFileDialog.getOpenFileName(self, '选择文件', '', f'Images/Videos ({suffixes})')[0]
+        filename = QFileDialog.getOpenFileName(self, 'Choose', '', f'Images/Videos ({suffixes})')[0]
         if filename == '':
             return
         self.file_path = Path(filename)
@@ -210,7 +212,7 @@ class VideoAnnotationTool(QMainWindow):
         elif self.file_path.suffix.split('.')[-1] in video_suffix:
             self.image_provider = VideoProvider(str(self.file_path))
         else:
-            QMessageBox.critical(self, '错误', '不支持的文件格式')
+            QMessageBox.critical(self, 'Error', 'Unsupported file format')
             return
         self.annotation_dir = self.file_path.parent / f"{self.file_path.stem}_annotations"
         self.annotation_dir.mkdir(exist_ok=True, parents=True)
