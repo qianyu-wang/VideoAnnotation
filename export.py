@@ -1,6 +1,6 @@
 
 import json
-from PyQt6.QtWidgets import QDialog, QProgressBar, QVBoxLayout
+from PyQt6.QtWidgets import QDialog, QProgressBar, QVBoxLayout, QInputDialog, QMessageBox
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QColor
 
@@ -35,13 +35,34 @@ class Export(QThread):
         self.image_provider = image_provider
         self.image_writer = image_writer
         self.annotation_dir = annotation_dir
-        dialog = ExportProgressDialog(image_provider.get_total(), parent)
+        self.start_index = 0
+        self.end_index = 0
+        while True:
+            text, ok = QInputDialog.getText(parent, "Export", f"Input export frame range start:end (e.g. 1:1000):", text=f"1:{image_provider.get_total()}")
+            if not ok:
+                return
+            parts = text.split(':')
+            if len(parts) != 2:
+                QMessageBox.critical(parent, "Error", "Invalid input")
+                continue
+            try:
+                parts = [int(part) for part in parts]
+            except ValueError:
+                QMessageBox.critical(parent, "Error", "Invalid input")
+                continue
+            self.start_index = parts[0] - 1
+            self.end_index = parts[1]
+            if self.start_index < 0 or self.end_index > image_provider.get_total() or self.start_index >= self.end_index:
+                QMessageBox.critical(parent, "Error", "Invalid input")
+                continue
+            break
+        dialog = ExportProgressDialog(self.end_index - self.start_index, parent)
         self.progress_updated.connect(dialog.set_progress)
         self.start()
         dialog.exec()
 
     def run(self):
-        for i in range(self.image_provider.get_total()):
+        for i in range(self.start_index, self.end_index):
             self.image_provider.set_index(i)
             image = self.image_provider.get_image()
             anno_file = self.annotation_dir / f"{i:08d}.json"
