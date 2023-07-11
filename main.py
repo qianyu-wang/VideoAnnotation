@@ -119,7 +119,7 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.button_run_provider.clicked.connect(self.run_provider)
         self.ui.button_run_provider_all.clicked.connect(self.run_provider_all)
         self.ui.button_export.clicked.connect(self.export)
-        self.ui.text_file.returnPressed.connect(self.select_file)
+        self.ui.text_file.returnPressed.connect(self.load_file)
         self.ui.text_current.returnPressed.connect(self.load_image)
         self.ui.check_text.toggled.connect(self.type_changed)
         self.ui.combo_type.currentTextChanged.connect(self.type_changed)
@@ -201,16 +201,19 @@ class VideoAnnotationTool(QMainWindow):
     def redo(self):
         self.ui.label_anno.redo()
 
-    def select_file(self, filename=None):
-        if filename is None or filename == '':
-            suffixes = ' '.join([f"*.{suffix}" for suffix in image_suffix + video_suffix])
-            filename = QFileDialog.getOpenFileName(self, 'Choose', '', f'Images/Videos ({suffixes})')[0]
-            if filename == '':
-                return
-        self.file_path = Path(filename)
+    def select_file(self):
+        suffixes = ' '.join([f"*.{suffix}" for suffix in image_suffix + video_suffix])
+        filename = QFileDialog.getOpenFileName(self, 'Choose', '', f'Images/Videos ({suffixes})')[0]
+        if filename == '':
+            return
+        self.ui.text_file.setText(filename)
         self.load_file()
 
     def load_file(self):
+        self.file_path = Path(self.ui.text_file.text())
+        if not self.file_path.exists():
+            QMessageBox.critical(self, 'Error', 'File not exists')
+            return
         if self.file_path.suffix in image_suffix:
             self.image_provider = ImageProvider(str(self.file_path))
         elif self.file_path.suffix.split('.')[-1] in video_suffix:
