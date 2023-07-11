@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QInputDialog
 from transformers import DetrForObjectDetection, DetrImageProcessor
 
 
-class DetectAnnoProvider(object):
+class DetectDetrResnet101(object):
     def __init__(self, parent) -> None:
         super().__init__()
         self.parent = parent
@@ -13,17 +13,20 @@ class DetectAnnoProvider(object):
         keep_label_text, ok = QInputDialog.getText(parent, 'Input', 'Please input labels to keep, separated by ;, for example: 0;1;2')
         if not ok:
             keep_label_text = ""
-        self.keep_labels = keep_label_text.split(";")
+        self.keep_labels: list[str] = keep_label_text.split(";")
+        self.keep_labels = list(filter(lambda x: len(x) > 0, map(lambda x: x.strip(), self.keep_labels)))
         self.text_template = ""
         self.text_template, ok = QInputDialog.getText(parent, 'Input', 'Please input text template, use score and label for substitution, for example: {score:.2f} {label}')
         if not ok:
             self.text_template = ""
 
     def run(self, image: Image.Image, annotation_type: str, show_text: bool):
+        print("start detect.")
         inputs = self.processor(images=image, return_tensors="pt")
         outputs = self.model(**inputs)
         target_sizes = torch.tensor([image.size[::-1]])
         results = self.processor.post_process_object_detection(outputs, target_sizes=target_sizes, threshold=0.9)[0]
+        print(len(results["boxes"]), "objects detected.")
 
         annotations = []
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):

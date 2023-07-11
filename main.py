@@ -3,16 +3,16 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
 import cv2
+import numpy as np
 from PIL import Image
-from PyQt6.QtCore import QBuffer, Qt, QIODeviceBase
+from PyQt6.QtCore import QBuffer, QIODeviceBase, Qt
 from PyQt6.QtGui import QImage, QKeyEvent, QPixmap
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox
+
 from export import Export
 from run_provider import RunProvider
 from run_provider_all import RunProviderAll
-
 from video_annotation_ui import Ui_MainWindow
 
 image_suffix = ['png', 'jpg', 'jpeg', 'bmp']
@@ -119,6 +119,7 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.button_run_provider.clicked.connect(self.run_provider)
         self.ui.button_run_provider_all.clicked.connect(self.run_provider_all)
         self.ui.button_export.clicked.connect(self.export)
+        self.ui.text_file.returnPressed.connect(self.select_file)
         self.ui.text_current.returnPressed.connect(self.load_image)
         self.ui.check_text.toggled.connect(self.type_changed)
         self.ui.combo_type.currentTextChanged.connect(self.type_changed)
@@ -131,6 +132,8 @@ class VideoAnnotationTool(QMainWindow):
     def load_provider_list(self):
         self.ui.combo_anno_provider.clear()
         self.ui.combo_anno_provider.addItem("")
+        self.anno_provider_name = None
+        self.anno_provider = None
         for provider_path in (Path(__file__).parent / "anno_provider").iterdir():
             if provider_path.is_file():
                 self.ui.combo_anno_provider.addItem(provider_path.stem)
@@ -170,7 +173,7 @@ class VideoAnnotationTool(QMainWindow):
             return
         provider = RunProvider(self.image_provider.get_image(), self.anno_provider, self.ui.combo_type.currentText(), self.ui.check_text.isChecked(), self)
         if provider.annotations is not None:
-            self.ui.label_anno.add_annotations(provider.annotations)
+            self.ui.label_anno.batch_add_annotation(provider.annotations)
             self.ui.label_anno.update()
 
     def run_provider_all(self):
@@ -198,11 +201,12 @@ class VideoAnnotationTool(QMainWindow):
     def redo(self):
         self.ui.label_anno.redo()
 
-    def select_file(self):
-        suffixes = ' '.join([f"*.{suffix}" for suffix in image_suffix + video_suffix])
-        filename = QFileDialog.getOpenFileName(self, 'Choose', '', f'Images/Videos ({suffixes})')[0]
-        if filename == '':
-            return
+    def select_file(self, filename=None):
+        if filename is None or filename == '':
+            suffixes = ' '.join([f"*.{suffix}" for suffix in image_suffix + video_suffix])
+            filename = QFileDialog.getOpenFileName(self, 'Choose', '', f'Images/Videos ({suffixes})')[0]
+            if filename == '':
+                return
         self.file_path = Path(filename)
         self.load_file()
 
@@ -232,7 +236,7 @@ class VideoAnnotationTool(QMainWindow):
             annotations = json.loads(anno_file.read_text(encoding='utf-8'))
         else:
             annotations = []
-        self.ui.label_anno.set_annotations(annotations)
+        self.ui.label_anno.init_annotations(annotations)
 
     def save_annotation(self, annotations):
         anno_file = self.annotation_dir / f"{self.image_provider.get_index():08d}.json"
