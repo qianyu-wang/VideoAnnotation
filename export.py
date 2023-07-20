@@ -1,8 +1,8 @@
 
 import json
-from PyQt6.QtWidgets import QDialog, QProgressBar, QVBoxLayout, QInputDialog, QMessageBox
-from PyQt6.QtCore import QObject, QThread, pyqtSignal
-from PyQt6.QtGui import QPainter, QPen, QColor
+from PySide6.QtWidgets import QDialog, QProgressBar, QVBoxLayout, QInputDialog, QMessageBox
+from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtGui import QPainter, QPen, QColor
 
 from anno_label import AnnoLabel
 
@@ -28,7 +28,7 @@ class ExportProgressDialog(QDialog):
 
 
 class Export(QThread):
-    progress_updated = pyqtSignal(int)
+    progress_updated = Signal(int)
 
     def __init__(self, image_provider, image_writer, annotation_dir, parent: QObject | None = ...) -> None:
         super().__init__(parent)

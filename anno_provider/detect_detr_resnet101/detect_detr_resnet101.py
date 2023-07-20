@@ -1,3 +1,4 @@
+from typing import Tuple
 import torch
 from PIL import Image
 from PyQt6.QtWidgets import QInputDialog
@@ -10,17 +11,17 @@ class DetectDetrResnet101(object):
         self.parent = parent
         self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-101")
         self.model = DetrForObjectDetection.from_pretrained("facebook/detr-resnet-101")
-        keep_label_text, ok = QInputDialog.getText(parent, 'Input', 'Please input labels to keep, separated by ;, for example: 0;1;2')
+        keep_label_text, ok = QInputDialog.getText(None, 'Input', 'Please input labels to keep, separated by ;, for example: 0;1;2')
         if not ok:
             keep_label_text = ""
         self.keep_labels: list[str] = keep_label_text.split(";")
         self.keep_labels = list(filter(lambda x: len(x) > 0, map(lambda x: x.strip(), self.keep_labels)))
         self.text_template = ""
-        self.text_template, ok = QInputDialog.getText(parent, 'Input', 'Please input text template, use score and label for substitution, for example: {score:.2f} {label}')
+        self.text_template, ok = QInputDialog.getText(None, 'Input', 'Please input text template, use score and label for substitution, for example: {score:.2f} {label}')
         if not ok:
             self.text_template = ""
 
-    def run(self, image: Image.Image, annotation_type: str, show_text: bool):
+    def run(self, image: Image.Image, annotation_type: str, color: Tuple[int, int, int]):
         print("start detect.")
         inputs = self.processor(images=image, return_tensors="pt")
         outputs = self.model(**inputs)
@@ -41,7 +42,9 @@ class DetectDetrResnet101(object):
                 "x2": box[2],
                 "y2": box[3],
             }
-            if show_text and len(self.text_template) > 0:
+            if len(self.text_template) > 0:
                 annotation["text"] = self.text_template.format(score=score, label=label)
+            if color is not None:
+                annotation["color"] = color
             annotations.append(annotation)
         return annotations

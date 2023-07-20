@@ -1,8 +1,8 @@
 import io
 
 from PIL import Image
-from PyQt6.QtCore import QBuffer, QIODeviceBase, QObject, QThread
-from PyQt6.QtWidgets import QDialog, QProgressBar, QVBoxLayout
+from PySide6.QtCore import QBuffer, QIODevice, QObject, QThread
+from PySide6.QtWidgets import QDialog, QProgressBar, QVBoxLayout
 
 
 class RunProviderProgressDialog(QDialog):
@@ -31,12 +31,12 @@ class RunProviderProgressDialog(QDialog):
 
 
 class RunProvider(QThread):
-    def __init__(self, image, provider, annotation_type, show_text, parent: QObject | None = ...) -> None:
+    def __init__(self, image, provider, annotation_type, color, parent: QObject | None = ...) -> None:
         super().__init__(parent)
         self.image = image
         self.provider = provider
         self.annotation_type = annotation_type
-        self.show_text = show_text
+        self.color = color
         self.annotations = None
         dialog = RunProviderProgressDialog(parent)
         self.finished.connect(dialog.stop_animation)
@@ -46,8 +46,9 @@ class RunProvider(QThread):
 
     def run(self):
         buffer = QBuffer()
-        buffer.open(QIODeviceBase.OpenModeFlag.ReadWrite)
+        buffer.open(QIODevice.OpenModeFlag.ReadWrite)
         self.image.save(buffer, "PNG")
         pil_im = Image.open(io.BytesIO(buffer.data()))
-        annotations = self.provider.run(pil_im, self.annotation_type, self.show_text)
+        annotations = self.provider.run(
+            pil_im, self.annotation_type, self.color)
         self.annotations = annotations

@@ -3,8 +3,8 @@ import io
 import json
 
 from PIL import Image
-from PyQt6.QtCore import QBuffer, QIODeviceBase, QObject, QThread, pyqtSignal
-from PyQt6.QtWidgets import QDialog, QProgressBar, QVBoxLayout
+from PySide6.QtCore import QBuffer, QIODevice, QObject, QThread, Signal
+from PySide6.QtWidgets import QDialog, QProgressBar, QVBoxLayout
 
 
 class RunProviderAllProgressDialog(QDialog):
@@ -28,15 +28,15 @@ class RunProviderAllProgressDialog(QDialog):
 
 
 class RunProviderAll(QThread):
-    progress_updated = pyqtSignal(int)
+    progress_updated = Signal(int)
 
-    def __init__(self, image_provider, anno_provider, annotation_dir, annotation_type, show_text, parent: QObject | None = ...) -> None:
+    def __init__(self, image_provider, anno_provider, annotation_dir, annotation_type, color, parent: QObject | None = ...) -> None:
         super().__init__(parent)
         self.image_provider = image_provider
         self.anno_provider = anno_provider
         self.annotation_dir = annotation_dir
         self.annotation_type = annotation_type
-        self.show_text = show_text
+        self.color = color
         dialog = RunProviderAllProgressDialog(image_provider.get_total(), parent)
         self.progress_updated.connect(dialog.set_progress)
         self.start()
@@ -47,10 +47,10 @@ class RunProviderAll(QThread):
             self.image_provider.set_index(i)
             image = self.image_provider.get_image()
             buffer = QBuffer()
-            buffer.open(QIODeviceBase.OpenModeFlag.ReadWrite)
+            buffer.open(QIODevice.OpenModeFlag.ReadWrite)
             image.save(buffer, "PNG")
             pil_im = Image.open(io.BytesIO(buffer.data()))
-            annotations = self.anno_provider.run(pil_im, self.annotation_type, self.show_text)
+            annotations = self.anno_provider.run(pil_im, self.annotation_type, self.color)
             anno_file = self.annotation_dir / f"{i:08d}.json"
             anno_file.write_text(json.dumps(annotations, ensure_ascii=False, indent=4), encoding='utf-8')
             self.progress_updated.emit(i + 1)

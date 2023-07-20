@@ -3,9 +3,9 @@ import copy
 import math
 from typing import List
 
-from PyQt6.QtWidgets import QLabel, QInputDialog
-from PyQt6.QtGui import QPainter, QPen, QColor, QFont, QFontMetrics, QMouseEvent
-from PyQt6.QtCore import QRect, Qt
+from PySide6.QtWidgets import QLabel, QInputDialog
+from PySide6.QtGui import QPainter, QPen, QColor, QFont, QFontMetrics, QMouseEvent
+from PySide6.QtCore import QRect, Qt
 
 
 class AnnotationList(object):
@@ -141,37 +141,43 @@ class AnnoLabel(QLabel):
         self.history: List[Command] = []
         self.undo_history: List[Command] = []
         self.on_annotation_updated = None
+        self.color = QColor(0, 255, 0)
 
     def paintEvent(self, event):
         ret = super().paintEvent(event)
         painter = QPainter(self)
         if self.current_pos is not None:
             pen = QPen()
-            pen.setWidth(3)
+            pen.setWidth(2)
             pen.setColor(QColor(255, 255, 255, 128))
             pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.drawLine(0, self.current_pos.y(), self.width(), self.current_pos.y())
             painter.drawLine(self.current_pos.x(), 0, self.current_pos.x(), self.height())
+        if self.selected_annotation_index is not None:
+            pen = QPen()
+            pen.setWidth(6)
+            pen.setColor(QColor(255, 255, 255))
+            painter.setPen(pen)
+            annotation = copy.deepcopy(self.annotation_list[self.selected_annotation_index])
+            if 'text' in annotation:
+                del annotation['text']
+            if 'color' in annotation:
+                del annotation['color']
+            self.paint_annotation(painter, annotation)
         if len(self.annotation_list) > 0:
             pen = QPen()
             pen.setWidth(3)
-            pen.setColor(QColor(0, 255, 0))
+            pen.setColor(self.color)
             painter.setPen(pen)
             for i in range(len(self.annotation_list)):
                 self.paint_annotation(painter, self.annotation_list[i])
         if self.annotation is not None:
             pen = QPen()
             pen.setWidth(3)
-            pen.setColor(QColor(255, 0, 0))
+            pen.setColor(QColor(self.color.red(), self.color.green(), self.color.blue(), 128))
             painter.setPen(pen)
             self.paint_annotation(painter, self.annotation)
-        if self.selected_annotation_index is not None:
-            pen = QPen()
-            pen.setWidth(3)
-            pen.setColor(QColor(255, 255, 0))
-            painter.setPen(pen)
-            self.paint_annotation(painter, self.annotation_list[self.selected_annotation_index])
         return ret
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -212,6 +218,7 @@ class AnnoLabel(QLabel):
                     text, ok = QInputDialog.getText(self, "Input", "Please input text")
                     if ok:
                         self.annotation['text'] = text
+                self.annotation['color'] = self.color.getRgb()[:3]
                 self.add_annotation(self.annotation)
                 self.annotation = None
         if event.button() == Qt.MouseButton.RightButton:
@@ -302,6 +309,11 @@ class AnnoLabel(QLabel):
     def paint_annotation(painter: QPainter, annotation):
         if annotation is None:
             return
+        if "color" in annotation:
+            color = QColor(*annotation["color"])
+            pen = painter.pen()
+            pen.setColor(color)
+            painter.setPen(pen)
         x = int(annotation['x'] * painter.window().width())
         y = int(annotation['y'] * painter.window().height())
         x2 = int(annotation['x2'] * painter.window().width())
@@ -319,7 +331,10 @@ class AnnoLabel(QLabel):
             painter.setFont(font)
             metrics = QFontMetrics(font)
             rect = metrics.boundingRect(text)
-            foreground_color = painter.pen().color()
+            foreground_color = QColor(0, 0, 0)
+            pen = painter.pen()
+            pen.setColor(foreground_color)
+            painter.setPen(pen)
             background_color = QColor(255 - foreground_color.red(), 255 - foreground_color.green(), 255 - foreground_color.blue(), 128)
             if annotation["type"] == 'point':
                 x = x - rect.width() // 2

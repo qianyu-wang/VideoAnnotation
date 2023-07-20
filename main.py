@@ -4,11 +4,12 @@ import sys
 from pathlib import Path
 
 import cv2
+from fastapi import background
 import numpy as np
 from PIL import Image
-from PyQt6.QtCore import QBuffer, QIODeviceBase, Qt
-from PyQt6.QtGui import QImage, QKeyEvent, QPixmap
-from PyQt6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox
+from PySide6.QtCore import QBuffer, QIODevice, Qt
+from PySide6.QtGui import QImage, QKeyEvent, QPixmap
+from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox, QColorDialog, QStyle
 
 from export import Export
 from run_provider import RunProvider
@@ -16,7 +17,8 @@ from run_provider_all import RunProviderAll
 from video_annotation_ui import Ui_MainWindow
 
 image_suffix = ['png', 'jpg', 'jpeg', 'bmp']
-video_suffix = ['mp4', 'avi', 'mkv', 'flv', 'rmvb', 'rm', 'mov', 'wmv', 'mpg', 'mpeg', 'm4v', '3gp', '3g2', 'asf', 'asx', 'vob', 'ts', 'm2ts', 'divx', 'f4v', 'm2v', 'dat', 'tp', 'webm', 'mts', 'mxf', 'mpe', 'mpv', 'm2t', 'ogv', 'swf', 'drc', 'gif', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v', 'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v', 'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng']
+video_suffix = ['mp4', 'avi', 'mkv', 'flv', 'rmvb', 'rm', 'mov', 'wmv', 'mpg', 'mpeg', 'm4v', '3gp', '3g2', 'asf', 'asx', 'vob', 'ts', 'm2ts', 'divx', 'f4v', 'm2v', 'dat', 'tp', 'webm', 'mts', 'mxf', 'mpe', 'mpv', 'm2t', 'ogv', 'swf', 'drc', 'gif', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v',
+                'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v', 'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng']
 
 
 class ImageProvider(object):
@@ -68,7 +70,8 @@ class VideoProvider(object):
         if not ret:
             return None
         self.video.set(cv2.CAP_PROP_POS_FRAMES, self.frame_index)
-        image = QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format.Format_BGR888)
+        image = QImage(
+            frame.data, frame.shape[1], frame.shape[0], QImage.Format.Format_BGR888)
         return image
 
     def get_index(self):
@@ -82,12 +85,13 @@ class VideoWriter(object):
     def __init__(self, filename, src_filename) -> None:
         self.filename = filename
         src_video = cv2.VideoCapture(src_filename)
-        self.video = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), src_video.get(cv2.CAP_PROP_FPS), (int(src_video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(src_video.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+        self.video = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), src_video.get(cv2.CAP_PROP_FPS), (int(
+            src_video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(src_video.get(cv2.CAP_PROP_FRAME_HEIGHT))))
         src_video.release()
 
     def write(self, image: QImage):
         buffer = QBuffer()
-        buffer.open(QIODeviceBase.OpenModeFlag.ReadWrite)
+        buffer.open(QIODevice.OpenModeFlag.ReadWrite)
         image.save(buffer, "PNG")
         pil_im = Image.open(io.BytesIO(buffer.data()))
         self.video.write(cv2.cvtColor(np.asarray(pil_im), cv2.COLOR_RGB2BGR))
@@ -119,11 +123,14 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.button_run_provider.clicked.connect(self.run_provider)
         self.ui.button_run_provider_all.clicked.connect(self.run_provider_all)
         self.ui.button_export.clicked.connect(self.export)
+        self.ui.button_change_color.clicked.connect(self.change_color)
         self.ui.text_file.returnPressed.connect(self.load_file)
         self.ui.text_current.returnPressed.connect(self.load_image)
         self.ui.check_text.toggled.connect(self.type_changed)
         self.ui.combo_type.currentTextChanged.connect(self.type_changed)
         self.ui.label_anno.on_annotation_updated = self.save_annotation
+
+        self.ui.label_color.setStyleSheet(f"background-color: rgb({self.ui.label_anno.color.red()}, {self.ui.label_anno.color.green()}, {self.ui.label_anno.color.blue()});")
 
         self.load_provider_list()
 
@@ -144,26 +151,40 @@ class VideoAnnotationTool(QMainWindow):
     def export(self):
         if self.file_path.suffix in image_suffix:
             image_provider = ImageProvider(str(self.file_path))
-            image_writer = ImageWriter(str(self.file_path.parent / f"{self.file_path.stem}_render{self.file_path.suffix}"))
+            image_writer = ImageWriter(str(
+                self.file_path.parent / f"{self.file_path.stem}_render{self.file_path.suffix}"))
         elif self.file_path.suffix.split('.')[-1] in video_suffix:
             image_provider = VideoProvider(str(self.file_path))
-            image_writer = VideoWriter(str(self.file_path.parent / f"{self.file_path.stem}_render{self.file_path.suffix}"), str(self.file_path))
+            image_writer = VideoWriter(str(
+                self.file_path.parent / f"{self.file_path.stem}_render{self.file_path.suffix}"), str(self.file_path))
         else:
             QMessageBox.critical(self, 'Error', 'Unsupported file format')
             return
         Export(image_provider, image_writer, self.annotation_dir, self)
-        QMessageBox.information(self, 'Information', f'Export to {image_writer.filename} finished.')
+        QMessageBox.information(self, 'Information',
+                                f'Export to {image_writer.filename} finished.')
+
+    def change_color(self):
+        color = QColorDialog.getColor(
+            initial=self.ui.label_anno.color, parent=self)
+        if color.isValid():
+            self.ui.label_anno.color = color
+            self.ui.label_color.setStyleSheet(f"background-color: rgb({self.ui.label_anno.color.red()}, {self.ui.label_anno.color.green()}, {self.ui.label_anno.color.blue()});")
+            self.ui.label_anno.update()
 
     def load_provider(self):
         provider_name = self.ui.combo_anno_provider.currentText()
         if provider_name == "":
-            QMessageBox.critical(self, 'Error', 'Please select a anno provider')
+            QMessageBox.critical(
+                self, 'Error', 'Please select a anno provider')
             return False
         if self.anno_provider_name != provider_name or self.anno_provider is None:
-            get_provider = __import__(f"anno_provider.{provider_name}", fromlist=['get_provider']).get_provider
+            get_provider = __import__(f"anno_provider.{provider_name}", fromlist=[
+                                      'get_provider']).get_provider
             self.anno_provider = get_provider(self)
         if self.anno_provider is None:
-            QMessageBox.critical(self, 'Error', f'Cannot load anno provider: {self.anno_provider_name}')
+            QMessageBox.critical(
+                self, 'Error', f'Cannot load anno provider: {self.anno_provider_name}')
             return False
         self.anno_provider_name = provider_name
         return True
@@ -171,7 +192,8 @@ class VideoAnnotationTool(QMainWindow):
     def run_provider(self):
         if not self.load_provider():
             return
-        provider = RunProvider(self.image_provider.get_image(), self.anno_provider, self.ui.combo_type.currentText(), self.ui.check_text.isChecked(), self)
+        provider = RunProvider(self.image_provider.get_image(
+        ), self.anno_provider, self.ui.combo_type.currentText(), self.ui.label_anno.color.getRgb()[:3], self)
         if provider.annotations is not None:
             self.ui.label_anno.batch_add_annotation(provider.annotations)
             self.ui.label_anno.update()
@@ -179,9 +201,12 @@ class VideoAnnotationTool(QMainWindow):
     def run_provider_all(self):
         if not self.load_provider():
             return
-        RunProviderAll(self.image_provider, self.anno_provider, self.annotation_dir, self.ui.combo_type.currentText(), self.ui.check_text.isChecked(), self)
+        RunProviderAll(self.image_provider, self.anno_provider, self.annotation_dir,
+                       self.ui.combo_type.currentText(),
+                       self.ui.label_anno.color.getRgb()[:3], self)
         self.load_image()
-        QMessageBox.information(self, 'Information', f'Run provider {self.anno_provider_name} finished')
+        QMessageBox.information(
+            self, 'Information', f'Run provider {self.anno_provider_name} finished')
 
     def type_changed(self):
         self.ui.label_anno.annotation_type = self.ui.combo_type.currentText()
@@ -202,8 +227,10 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.label_anno.redo()
 
     def select_file(self):
-        suffixes = ' '.join([f"*.{suffix}" for suffix in image_suffix + video_suffix])
-        filename = QFileDialog.getOpenFileName(self, 'Choose', '', f'Images/Videos ({suffixes})')[0]
+        suffixes = ' '.join(
+            [f"*.{suffix}" for suffix in image_suffix + video_suffix])
+        filename = QFileDialog.getOpenFileName(
+            self, 'Choose', '', f'Images/Videos ({suffixes})')[0]
         if filename == '':
             return
         self.ui.text_file.setText(filename)
@@ -221,7 +248,8 @@ class VideoAnnotationTool(QMainWindow):
         else:
             QMessageBox.critical(self, 'Error', 'Unsupported file format')
             return
-        self.annotation_dir = self.file_path.parent / f"{self.file_path.stem}_annotations"
+        self.annotation_dir = self.file_path.parent / \
+            f"{self.file_path.stem}_annotations"
         self.annotation_dir.mkdir(exist_ok=True, parents=True)
         self.ui.text_file.setText(str(self.file_path.absolute()))
         self.ui.label_total.setText(f"/{self.image_provider.get_total()}")
@@ -232,9 +260,11 @@ class VideoAnnotationTool(QMainWindow):
     def load_image(self):
         self.image_provider.set_index(int(self.ui.text_current.text()) - 1)
         self.ui.text_current.setText(str(self.image_provider.get_index() + 1))
-        pixmap = QPixmap.fromImage(self.image_provider.get_image().scaled(self.ui.label_anno.size(), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        pixmap = QPixmap.fromImage(self.image_provider.get_image().scaled(self.ui.label_anno.size(
+        ), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self.ui.label_anno.setPixmap(pixmap)
-        anno_file = self.annotation_dir / f"{self.image_provider.get_index():08d}.json"
+        anno_file = self.annotation_dir / \
+            f"{self.image_provider.get_index():08d}.json"
         if anno_file.exists():
             annotations = json.loads(anno_file.read_text(encoding='utf-8'))
         else:
@@ -242,8 +272,10 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.label_anno.init_annotations(annotations)
 
     def save_annotation(self, annotations):
-        anno_file = self.annotation_dir / f"{self.image_provider.get_index():08d}.json"
-        anno_file.write_text(json.dumps(annotations, indent=4, ensure_ascii=False), encoding='utf-8')
+        anno_file = self.annotation_dir / \
+            f"{self.image_provider.get_index():08d}.json"
+        anno_file.write_text(json.dumps(
+            annotations, indent=4, ensure_ascii=False), encoding='utf-8')
 
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
         if self.image_provider is not None:
