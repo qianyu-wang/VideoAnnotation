@@ -15,10 +15,10 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame,
-    QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-    QMenuBar, QPushButton, QSizePolicy, QSpacerItem,
-    QStatusBar, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QFrame, QHBoxLayout,
+    QLabel, QLineEdit, QMainWindow, QMenuBar,
+    QPushButton, QSizePolicy, QSpacerItem, QStatusBar,
+    QVBoxLayout, QWidget)
 
 from anno_label import AnnoLabel
 
@@ -61,6 +61,7 @@ class Ui_MainWindow(object):
         self.combo_type.addItem("")
         self.combo_type.addItem("")
         self.combo_type.addItem("")
+        self.combo_type.addItem("")
         self.combo_type.setObjectName(u"combo_type")
 
         self.horizontalLayout.addWidget(self.combo_type)
@@ -83,10 +84,10 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout.addWidget(self.button_change_color)
 
-        self.check_text = QCheckBox(self.centralwidget)
-        self.check_text.setObjectName(u"check_text")
+        self.button_copy_to_all = QPushButton(self.centralwidget)
+        self.button_copy_to_all.setObjectName(u"button_copy_to_all")
 
-        self.horizontalLayout.addWidget(self.check_text)
+        self.horizontalLayout.addWidget(self.button_copy_to_all)
 
         self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
@@ -215,7 +216,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 800, 20))
+        self.menubar.setGeometry(QRect(0, 0, 800, 22))
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -231,13 +232,14 @@ class Ui_MainWindow(object):
         self.button_select_file.setText(QCoreApplication.translate("MainWindow", u"select video", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"annotation type", None))
         self.combo_type.setItemText(0, QCoreApplication.translate("MainWindow", u"rectangle", None))
-        self.combo_type.setItemText(1, QCoreApplication.translate("MainWindow", u"circle", None))
-        self.combo_type.setItemText(2, QCoreApplication.translate("MainWindow", u"point", None))
+        self.combo_type.setItemText(1, QCoreApplication.translate("MainWindow", u"text", None))
+        self.combo_type.setItemText(2, QCoreApplication.translate("MainWindow", u"circle", None))
+        self.combo_type.setItemText(3, QCoreApplication.translate("MainWindow", u"point", None))
 
         self.label_4.setText(QCoreApplication.translate("MainWindow", u"color", None))
         self.label_color.setText("")
         self.button_change_color.setText(QCoreApplication.translate("MainWindow", u"change color", None))
-        self.check_text.setText(QCoreApplication.translate("MainWindow", u"text", None))
+        self.button_copy_to_all.setText(QCoreApplication.translate("MainWindow", u"copy last annotation to all frames", None))
         self.label_3.setText(QCoreApplication.translate("MainWindow", u"annotation provider", None))
         self.button_run_provider.setText(QCoreApplication.translate("MainWindow", u"run provider", None))
         self.button_run_provider_all.setText(QCoreApplication.translate("MainWindow", u"run provider for all frames", None))

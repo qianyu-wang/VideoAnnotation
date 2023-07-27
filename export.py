@@ -78,6 +78,6 @@ class Export(QThread):
             for annotation in annotations:
                 AnnoLabel.paint_annotation(painter, annotation)
             self.image_writer.write(image)
-            self.progress_updated.emit(i + 1)
+            self.progress_updated.emit(i - self.start_index + 1)
             painter.end()
         self.image_writer.release()

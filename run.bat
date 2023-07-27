@@ -3,5 +3,5 @@
 cd %~dp0
 set PYTHONPATH=%PYTHONPATH%;%~dp0
 call conda activate
-python main.py
+python video_annotation.py
 pause

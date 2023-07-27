@@ -8,7 +8,7 @@
             "name": "run",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/video_annotation.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [],

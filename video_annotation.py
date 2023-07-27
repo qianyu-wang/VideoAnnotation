@@ -4,16 +4,17 @@ import sys
 from pathlib import Path
 
 import cv2
-from fastapi import background
 import numpy as np
 from PIL import Image
 from PySide6.QtCore import QBuffer, QIODevice, Qt
 from PySide6.QtGui import QImage, QKeyEvent, QPixmap
-from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMessageBox, QColorDialog, QStyle
+from PySide6.QtWidgets import (QApplication, QColorDialog, QFileDialog,
+                               QMainWindow, QMessageBox)
 
 from export import Export
 from run_provider import RunProvider
 from run_provider_all import RunProviderAll
+from write_annotation_all import WriteAnnotationAll
 from video_annotation_ui import Ui_MainWindow
 
 image_suffix = ['png', 'jpg', 'jpeg', 'bmp']
@@ -124,9 +125,9 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.button_run_provider_all.clicked.connect(self.run_provider_all)
         self.ui.button_export.clicked.connect(self.export)
         self.ui.button_change_color.clicked.connect(self.change_color)
+        self.ui.button_copy_to_all.clicked.connect(self.copy_to_all)
         self.ui.text_file.returnPressed.connect(self.load_file)
         self.ui.text_current.returnPressed.connect(self.load_image)
-        self.ui.check_text.toggled.connect(self.type_changed)
         self.ui.combo_type.currentTextChanged.connect(self.type_changed)
         self.ui.label_anno.on_annotation_updated = self.save_annotation
 
@@ -172,6 +173,15 @@ class VideoAnnotationTool(QMainWindow):
             self.ui.label_color.setStyleSheet(f"background-color: rgb({self.ui.label_anno.color.red()}, {self.ui.label_anno.color.green()}, {self.ui.label_anno.color.blue()});")
             self.ui.label_anno.update()
 
+    def copy_to_all(self):
+        if len(self.ui.label_anno.annotation_list) == 0:
+            return
+        annotation = self.ui.label_anno.annotation_list.annotations[-1]
+        WriteAnnotationAll(self.image_provider, self.annotation_dir, annotation, self)
+        self.load_image()
+        QMessageBox.information(
+            self, 'Information', f'Write anotation to all frames finished')
+
     def load_provider(self):
         provider_name = self.ui.combo_anno_provider.currentText()
         if provider_name == "":
@@ -210,7 +220,6 @@ class VideoAnnotationTool(QMainWindow):
 
     def type_changed(self):
         self.ui.label_anno.annotation_type = self.ui.combo_type.currentText()
-        self.ui.label_anno.show_text = self.ui.check_text.isChecked()
 
     def next_image(self):
         self.ui.text_current.setText(str(int(self.ui.text_current.text()) + 1))
