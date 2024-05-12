@@ -1,6 +1,7 @@
 import io
 import json
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 import cv2
@@ -14,12 +15,11 @@ from PySide6.QtWidgets import (QApplication, QColorDialog, QFileDialog,
 from export import Export
 from run_provider import RunProvider
 from run_provider_all import RunProviderAll
-from write_annotation_all import WriteAnnotationAll
 from video_annotation_ui import Ui_MainWindow
+from write_annotation_all import WriteAnnotationAll
 
-image_suffix = ['png', 'jpg', 'jpeg', 'bmp']
-video_suffix = ['mp4', 'avi', 'mkv', 'flv', 'rmvb', 'rm', 'mov', 'wmv', 'mpg', 'mpeg', 'm4v', '3gp', '3g2', 'asf', 'asx', 'vob', 'ts', 'm2ts', 'divx', 'f4v', 'm2v', 'dat', 'tp', 'webm', 'mts', 'mxf', 'mpe', 'mpv', 'm2t', 'ogv', 'swf', 'drc', 'gif', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v',
-                'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v', 'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng']
+image_suffix = ['png', 'jpg', 'jpeg', 'bmp', 'tiff', 'tif', 'gif', 'webp', 'ico', 'jpe', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 'svg', 'svgz', 'eps', 'psd', 'ai', 'cdr', 'dxf', 'wmf', 'emf', 'tga', 'icns', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 'svg', 'svgz', 'eps', 'psd', 'ai', 'cdr', 'dxf', 'wmf', 'emf', 'tga', 'icns', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 'svg', 'svgz', 'eps', 'psd', 'ai', 'cdr', 'dxf', 'wmf', 'emf', 'tga', 'icns']
+video_suffix = ['mp4', 'avi', 'mkv', 'flv', 'rmvb', 'rm', 'mov', 'wmv', 'mpg', 'mpeg', 'm4v', '3gp', '3g2', 'asf', 'asx', 'vob', 'ts', 'm2ts', 'divx', 'f4v', 'm2v', 'dat', 'tp', 'webm', 'mts', 'mxf', 'mpe', 'mpv', 'm2t', 'ogv', 'swf', 'drc', 'gif', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v', 'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v', 'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng']
 
 
 class ImageProvider(object):
@@ -101,6 +101,44 @@ class VideoWriter(object):
         self.video.release()
 
 
+class ImageFolderProvider(object):
+    def __init__(self, folder):
+        self.filename = folder
+        self.images = list(folder.glob('*'))
+        self.index = 0
+
+    def set_index(self, index):
+        self.index = index
+        if self.index < 0:
+            self.index = 0
+        if self.index >= len(self.images):
+            self.index = len(self.images) - 1
+
+    def get_image(self):
+        return QImage(str(self.images[self.index]))
+
+    def get_index(self):
+        return self.index
+
+    def get_total(self):
+        return len(self.images)
+
+
+class ImageFolderWriter(object):
+    def __init__(self, folder):
+        self.filename = folder
+        self.index = 0
+
+    def write(self, image: QImage):
+        dest_path = self.filename / f"{self.index:08d}.png"
+        dest_path.parent.mkdir(exist_ok=True, parents=True)
+        image.save(str(dest_path))
+        self.index += 1
+
+    def release(self):
+        pass
+
+
 class VideoAnnotationTool(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -150,7 +188,14 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.combo_anno_provider.setCurrentIndex(0)
 
     def export(self):
-        if self.file_path.suffix in image_suffix:
+        if self.file_path is None:
+            QMessageBox.critical(self, 'Error', 'Please select a file')
+            return
+        elif self.file_path.is_dir():
+            image_provider = ImageFolderProvider(self.file_path)
+            image_writer = ImageFolderWriter(
+                self.file_path.parent / f"{self.file_path.stem}_render")
+        elif self.file_path.suffix in image_suffix:
             image_provider = ImageProvider(str(self.file_path))
             image_writer = ImageWriter(str(
                 self.file_path.parent / f"{self.file_path.stem}_render{self.file_path.suffix}"))
@@ -250,7 +295,9 @@ class VideoAnnotationTool(QMainWindow):
         if not self.file_path.exists():
             QMessageBox.critical(self, 'Error', 'File not exists')
             return
-        if self.file_path.suffix in image_suffix:
+        if self.file_path.is_dir():
+            self.image_provider = ImageFolderProvider(self.file_path)
+        elif self.file_path.suffix in image_suffix:
             self.image_provider = ImageProvider(str(self.file_path))
         elif self.file_path.suffix.split('.')[-1] in video_suffix:
             self.image_provider = VideoProvider(str(self.file_path))
@@ -278,7 +325,58 @@ class VideoAnnotationTool(QMainWindow):
             annotations = json.loads(anno_file.read_text(encoding='utf-8'))
         else:
             annotations = []
+        if len(annotations) == 0:
+            annotations = self.predict_by_track()
         self.ui.label_anno.init_annotations(annotations)
+
+    def predict_by_track(self):
+        current_index = self.image_provider.get_index()
+        if current_index == 0:
+            return []
+        previous_index = current_index - 1
+        anno_file = self.annotation_dir / f"{previous_index:08d}.json"
+        if not anno_file.exists():
+            return []
+        previous_annotations = json.loads(anno_file.read_text(encoding='utf-8'))
+        if len(previous_annotations) == 0:
+            return []
+        self.image_provider.set_index(previous_index)
+        previous_image = self.image_provider.get_image()
+        self.image_provider.set_index(current_index)
+        img = previous_image
+        buffer_ = img.bits()
+        buffer_.cast('B').release()
+        cv2_img = np.asarray(buffer_).reshape(img.height(), img.width(), 4)
+        cv_previous_image = cv2.cvtColor(cv2_img, cv2.COLOR_RGBA2BGR)
+        current_image: QImage = self.image_provider.get_image()
+        img = current_image
+        buffer_ = img.bits()
+        buffer_.cast("B").release()
+        cv2_img = np.asarray(buffer_).reshape(img.height(), img.width(), 4)
+        cv_current_image = cv2.cvtColor(cv2_img, cv2.COLOR_RGBA2BGR)
+        current_annotations = []
+        for annotation in previous_annotations:
+            if annotation['type'] in ['rectangle']:
+                x1 = int(annotation['x'] * previous_image.width())
+                y1 = int(annotation['y'] * previous_image.height())
+                x2 = int(annotation['x2'] * previous_image.width())
+                y2 = int(annotation["y2"] * previous_image.height())
+                param = cv2.TrackerCSRT.Params()
+                param.use_hog = True
+                param.use_color_names = True
+                tracker = cv2.TrackerCSRT.create(param)
+                tracker.init(cv_previous_image, (x1, y1, x2 - x1, y2 - y1))
+                success, predit_box = tracker.update(cv_current_image)
+                x, y, w, h = predit_box
+                if success:
+                    annotation = deepcopy(annotation)
+                    annotation['x'] = x / current_image.width()
+                    annotation['y'] = y / current_image.height()
+                    annotation['x2'] = (x + w) / current_image.width()
+                    annotation['y2'] = (y + h) / current_image.height()
+                    current_annotations.append(annotation)
+        self.save_annotation(current_annotations)
+        return current_annotations
 
     def save_annotation(self, annotations):
         anno_file = self.annotation_dir / \

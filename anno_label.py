@@ -9,7 +9,7 @@ from PySide6.QtCore import QRect, Qt
 
 
 FONT_NAME = "Microsoft YaHei"
-FONT_SIZE = 20
+FONT_SIZE = 40
 
 
 class AnnotationList(object):
@@ -361,14 +361,15 @@ class AnnoLabel(QLabel):
             painter.setFont(font)
             metrics = QFontMetrics(font)
             rect = metrics.boundingRect(text)
-            if annotation['type'] == 'text':
-                foreground_color = painter.pen().color()
-            else:
-                foreground_color = QColor(0, 0, 0)
+            # if annotation['type'] == 'text':
+            #     foreground_color = painter.pen().color()
+            # else:
+            foreground_color = painter.pen().color()
+            foreground_color = QColor.fromRgb(255, 255, 0).lighter(100)
             pen = painter.pen()
             pen.setColor(foreground_color)
             painter.setPen(pen)
-            background_color = QColor(255 - foreground_color.red(), 255 - foreground_color.green(), 255 - foreground_color.blue(), 128)
+            background_color = QColor(255 - foreground_color.red(), 255 - foreground_color.green(), 255 - foreground_color.blue(), 200)
             if annotation["type"] == 'point':
                 x = x - rect.width() // 2
                 y = y - metrics.descent() - rect.height() // 3
@@ -381,7 +382,7 @@ class AnnoLabel(QLabel):
             elif annotation["type"] == 'text':
                 x = x
                 y = y2 - metrics.descent()
-            painter.fillRect(rect.translated(x, y), background_color)
+            # painter.fillRect(rect.translated(x, y), background_color)
             painter.drawText(x, y, text)
 
     def find_nearest_annotation(self, x, y):
