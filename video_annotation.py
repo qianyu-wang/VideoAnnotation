@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from PIL import Image
 from PySide6.QtCore import QBuffer, QIODevice, Qt
-from PySide6.QtGui import QImage, QKeyEvent, QPixmap
+from PySide6.QtGui import QImage, QKeyEvent, QColor
 from PySide6.QtWidgets import (QApplication, QColorDialog, QFileDialog,
                                QMainWindow, QMessageBox)
 
@@ -18,8 +18,8 @@ from run_provider_all import RunProviderAll
 from video_annotation_ui import Ui_MainWindow
 from write_annotation_all import WriteAnnotationAll
 
-image_suffix = ['png', 'jpg', 'jpeg', 'bmp', 'tiff', 'tif', 'gif', 'webp', 'ico', 'jpe', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 'svg', 'svgz', 'eps', 'psd', 'ai', 'cdr', 'dxf', 'wmf', 'emf', 'tga', 'icns', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 'svg', 'svgz', 'eps', 'psd', 'ai', 'cdr', 'dxf', 'wmf', 'emf', 'tga', 'icns', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 'svg', 'svgz', 'eps', 'psd', 'ai', 'cdr', 'dxf', 'wmf', 'emf', 'tga', 'icns']
-video_suffix = ['mp4', 'avi', 'mkv', 'flv', 'rmvb', 'rm', 'mov', 'wmv', 'mpg', 'mpeg', 'm4v', '3gp', '3g2', 'asf', 'asx', 'vob', 'ts', 'm2ts', 'divx', 'f4v', 'm2v', 'dat', 'tp', 'webm', 'mts', 'mxf', 'mpe', 'mpv', 'm2t', 'ogv', 'swf', 'drc', 'gif', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v', 'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng', 'avi', 'mov', 'qt', 'wmv', 'yuv', 'rm', 'rmvb', 'asf', 'amv', 'mp4', 'm4p', 'm4v', 'mpg', 'mp2', 'mpeg', 'mpe', 'mpv', 'mpg', 'mpeg', 'm2v', 'm4v', 'svi', '3gp', '3g2', 'mxf', 'roq', 'nsv', 'flv', 'f4v', 'f4p', 'f4a', 'f4b', 'gif', 'webm', 'vob', 'ogv', 'drc', 'gifv', 'mng']
+image_suffix = ['png', 'jpg', 'jpeg', 'bmp', 'tiff', 'tif', 'webp', 'ico', 'jpe', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', 'svg', 'svgz', 'eps', 'psd', 'ai', 'cdr', 'dxf', 'wmf', 'emf', 'tga', 'icns']
+video_suffix = ['mp4', 'avi', 'mkv', 'flv', 'gif', 'mov', 'wmv', 'rmvb', 'rm', 'asf', 'ts', 'mpeg', 'mpg', 'vob', 'webm', 'm4v', '3gp', '3g2', 'f4v', 'f4p', 'f4a', 'f4b', 'swf', 'm2ts', 'mts', 'm2v', 'm4v', 'm2p', 'm2t', 'm1v', 'm1a', 'm1v', 'm1']
 
 
 class ImageProvider(object):
@@ -153,6 +153,21 @@ class VideoAnnotationTool(QMainWindow):
         self.anno_provider_name = None
         self.anno_provider = None
 
+        self.ui.text_label_font.setText(self.ui.label_anno.font_name)
+        self.ui.text_label_size.setText(f"{self.ui.label_anno.font_size * 100:.2f}")
+        self.ui.button_color.setStyleSheet(
+            f"background-color: {self.ui.label_anno.color.name(QColor.NameFormat.HexArgb)};"
+        )
+        self.ui.button_fill_color.setStyleSheet(
+            f"background-color: {self.ui.label_anno.fill_color.name(QColor.NameFormat.HexArgb)};"
+        )
+        self.ui.button_label_color.setStyleSheet(
+            f"background-color: {self.ui.label_anno.label_color.name(QColor.NameFormat.HexArgb)};"
+        )
+        self.ui.button_label_fill_color.setStyleSheet(
+            f"background-color: {self.ui.label_anno.label_fill_color.name(QColor.NameFormat.HexArgb)};"
+        )
+
         self.ui.button_select_file.clicked.connect(self.select_file)
         self.ui.button_next.clicked.connect(self.next_image)
         self.ui.button_previous.clicked.connect(self.previous_image)
@@ -162,14 +177,31 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.button_run_provider.clicked.connect(self.run_provider)
         self.ui.button_run_provider_all.clicked.connect(self.run_provider_all)
         self.ui.button_export.clicked.connect(self.export)
-        self.ui.button_change_color.clicked.connect(self.change_color)
+        self.ui.button_color.clicked.connect(self.change_color)
+        self.ui.button_fill_color.clicked.connect(self.change_fill_color)
         self.ui.button_copy_to_all.clicked.connect(self.copy_to_all)
+        self.ui.button_track.clicked.connect(self.run_track)
+        self.ui.button_clear.clicked.connect(self.clear_annotation)
         self.ui.text_file.returnPressed.connect(self.load_file)
+        self.ui.text_file.editingFinished.connect(self.load_file)
         self.ui.text_current.returnPressed.connect(self.load_image)
+        self.ui.text_current.editingFinished.connect(self.load_image)
         self.ui.combo_type.currentTextChanged.connect(self.type_changed)
         self.ui.label_anno.on_annotation_updated = self.save_annotation
+        self.ui.text_label.textChanged.connect(self.change_label)
+        self.ui.button_label_color.clicked.connect(self.change_label_color)
+        self.ui.button_label_fill_color.clicked.connect(self.change_label_fill_color)
+        self.ui.text_label_font.returnPressed.connect(self.change_label_font_name)
+        self.ui.text_label_font.editingFinished.connect(self.change_label_font_name)
+        self.ui.text_label_size.returnPressed.connect(self.change_label_font_size)
+        self.ui.text_label_size.editingFinished.connect(self.change_label_font_size)
 
-        self.ui.label_color.setStyleSheet(f"background-color: rgb({self.ui.label_anno.color.red()}, {self.ui.label_anno.color.green()}, {self.ui.label_anno.color.blue()});")
+        self.ui.combo_tracker_provider.clear()
+        self.ui.combo_tracker_provider.addItem("")
+        self.ui.combo_tracker_provider.addItem("CSRT")
+        self.ui.combo_tracker_provider.addItem("KCF")
+        self.ui.combo_tracker_provider.addItem("ViT")
+        self.ui.combo_tracker_provider.setCurrentIndex(0)
 
         self.load_provider_list()
 
@@ -181,9 +213,9 @@ class VideoAnnotationTool(QMainWindow):
         self.anno_provider_name = None
         self.anno_provider = None
         for provider_path in (Path(__file__).parent / "anno_provider").iterdir():
-            if provider_path.is_file():
+            if provider_path.is_file() and provider_path.suffix == '.py' and provider_path.stem != '__init__':
                 self.ui.combo_anno_provider.addItem(provider_path.stem)
-            elif provider_path.is_dir():
+            elif provider_path.is_dir() and (provider_path / '__init__.py').exists() and provider_path.name != '__pycache__':
                 self.ui.combo_anno_provider.addItem(provider_path.name)
         self.ui.combo_anno_provider.setCurrentIndex(0)
 
@@ -195,7 +227,7 @@ class VideoAnnotationTool(QMainWindow):
             image_provider = ImageFolderProvider(self.file_path)
             image_writer = ImageFolderWriter(
                 self.file_path.parent / f"{self.file_path.stem}_render")
-        elif self.file_path.suffix in image_suffix:
+        elif self.file_path.suffix.split(".")[-1] in image_suffix:
             image_provider = ImageProvider(str(self.file_path))
             image_writer = ImageWriter(str(
                 self.file_path.parent / f"{self.file_path.stem}_render{self.file_path.suffix}"))
@@ -212,11 +244,66 @@ class VideoAnnotationTool(QMainWindow):
 
     def change_color(self):
         color = QColorDialog.getColor(
-            initial=self.ui.label_anno.color, parent=self)
+            initial=self.ui.label_anno.color,
+            parent=self,
+            options=QColorDialog.ColorDialogOption.ShowAlphaChannel,
+        )
         if color.isValid():
             self.ui.label_anno.color = color
-            self.ui.label_color.setStyleSheet(f"background-color: rgb({self.ui.label_anno.color.red()}, {self.ui.label_anno.color.green()}, {self.ui.label_anno.color.blue()});")
-            self.ui.label_anno.update()
+            self.ui.button_color.setStyleSheet(
+                f"background-color: rgba({self.ui.label_anno.color.name(QColor.NameFormat.HexArgb)});"
+            )
+
+    def change_fill_color(self):
+        color = QColorDialog.getColor(
+            initial=self.ui.label_anno.fill_color,
+            parent=self,
+            options=QColorDialog.ColorDialogOption.ShowAlphaChannel,
+        )
+        if color.isValid():
+            self.ui.label_anno.fill_color = color
+            self.ui.button_fill_color.setStyleSheet(
+                f"background-color: {self.ui.label_anno.fill_color.name(QColor.NameFormat.HexArgb)};"
+            )
+
+    def change_label_color(self):
+        color = QColorDialog.getColor(
+            initial=self.ui.label_anno.label_color,
+            parent=self,
+            options=QColorDialog.ColorDialogOption.ShowAlphaChannel,
+        )
+        if color.isValid():
+            self.ui.label_anno.label_color = color
+            self.ui.button_label_color.setStyleSheet(
+                f"background-color: {self.ui.label_anno.label_color.name(QColor.NameFormat.HexArgb)};"
+            )
+
+    def change_label_fill_color(self):
+        color = QColorDialog.getColor(
+            initial=self.ui.label_anno.label_fill_color,
+            parent=self,
+            options=QColorDialog.ColorDialogOption.ShowAlphaChannel,
+        )
+        if color.isValid():
+            self.ui.label_anno.label_fill_color = color
+            self.ui.button_label_fill_color.setStyleSheet(
+                f"background-color: {self.ui.label_anno.label_fill_color.name(QColor.NameFormat.HexArgb)};"
+            )
+
+    def change_label(self):
+        self.ui.label_anno.label = self.ui.text_label.text()
+
+    def change_label_font_name(self):
+        if self.ui.text_label_font.text() != "":
+            self.ui.label_anno.font_name = self.ui.text_label_font.text()
+        self.ui.text_label_font.setText(self.ui.label_anno.font_name)
+
+    def change_label_font_size(self):
+        try:
+            self.ui.label_anno.font_size = float(self.ui.text_label_size.text()) / 100
+        except:
+            pass
+        self.ui.text_label_size.setText(f'{self.ui.label_anno.font_size * 100:.2f}')
 
     def copy_to_all(self):
         if len(self.ui.label_anno.annotation_list) == 0:
@@ -243,6 +330,9 @@ class VideoAnnotationTool(QMainWindow):
             return False
         self.anno_provider_name = provider_name
         return True
+
+    def run_track(self):
+        self.ui.label_anno.batch_add_annotation(self.predict_by_track())
 
     def run_provider(self):
         if not self.load_provider():
@@ -297,7 +387,7 @@ class VideoAnnotationTool(QMainWindow):
             return
         if self.file_path.is_dir():
             self.image_provider = ImageFolderProvider(self.file_path)
-        elif self.file_path.suffix in image_suffix:
+        elif self.file_path.suffix.split(".")[-1] in image_suffix:
             self.image_provider = ImageProvider(str(self.file_path))
         elif self.file_path.suffix.split('.')[-1] in video_suffix:
             self.image_provider = VideoProvider(str(self.file_path))
@@ -316,9 +406,7 @@ class VideoAnnotationTool(QMainWindow):
     def load_image(self):
         self.image_provider.set_index(int(self.ui.text_current.text()) - 1)
         self.ui.text_current.setText(str(self.image_provider.get_index() + 1))
-        pixmap = QPixmap.fromImage(self.image_provider.get_image().scaled(self.ui.label_anno.size(
-        ), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation))
-        self.ui.label_anno.setPixmap(pixmap)
+        self.ui.label_anno.set_image(self.image_provider.get_image())
         anno_file = self.annotation_dir / \
             f"{self.image_provider.get_index():08d}.json"
         if anno_file.exists():
@@ -326,8 +414,12 @@ class VideoAnnotationTool(QMainWindow):
         else:
             annotations = []
         if len(annotations) == 0:
-            annotations = self.predict_by_track()
+            if self.ui.combo_tracker_provider.currentText() != 'None' and len(self.ui.combo_tracker_provider.currentText()) > 0:
+                annotations.extend(self.predict_by_track())
         self.ui.label_anno.init_annotations(annotations)
+
+    def clear_annotation(self):
+        self.ui.label_anno.clear_annotations()
 
     def predict_by_track(self):
         current_index = self.image_provider.get_index()
@@ -361,12 +453,23 @@ class VideoAnnotationTool(QMainWindow):
                 y1 = int(annotation['y'] * previous_image.height())
                 x2 = int(annotation['x2'] * previous_image.width())
                 y2 = int(annotation["y2"] * previous_image.height())
-                param = cv2.TrackerCSRT.Params()
-                param.use_hog = True
-                param.use_color_names = True
-                tracker = cv2.TrackerCSRT.create(param)
-                tracker.init(cv_previous_image, (x1, y1, x2 - x1, y2 - y1))
-                success, predit_box = tracker.update(cv_current_image)
+                box = x1, y1, x2 - x1, y2 - y1
+                if self.ui.combo_tracker_provider.currentText() == 'CSRT':
+                    param = cv2.TrackerCSRT.Params()
+                    param.use_hog = True
+                    param.use_color_names = True
+                    tracker = cv2.TrackerCSRT.create(param)
+                    tracker.init(cv_previous_image, box)
+                    success, predit_box = tracker.update(cv_current_image)
+                elif self.ui.combo_tracker_provider.currentText() == 'KCF':
+                    tracker = cv2.TrackerKCF.create()
+                    tracker.init(cv_previous_image, box)
+                    success, predit_box = tracker.update(cv_current_image)
+                elif self.ui.combo_tracker_provider.currentText() == 'ViT':
+                    param = cv2.TrackerVit.Params()
+                    tracker = cv2.TrackerVit.create(param)
+                    tracker.init(cv_previous_image, box)
+                    success, predit_box = tracker.update(cv_current_image)
                 x, y, w, h = predit_box
                 if success:
                     annotation = deepcopy(annotation)

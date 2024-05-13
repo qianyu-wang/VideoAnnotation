@@ -1,10 +1,11 @@
-
 import io
 import json
 
 from PIL import Image
 from PySide6.QtCore import QBuffer, QIODevice, QObject, QThread, Signal
 from PySide6.QtWidgets import QDialog, QProgressBar, QVBoxLayout
+
+import anno_provider  # noqa: F401
 
 
 class RunProviderAllProgressDialog(QDialog):

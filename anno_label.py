@@ -3,13 +3,24 @@ import copy
 import math
 from typing import List
 
-from PySide6.QtWidgets import QLabel, QInputDialog
-from PySide6.QtGui import QPainter, QPen, QColor, QFont, QFontMetrics, QMouseEvent
+from PySide6.QtWidgets import QLabel, QInputDialog, QColorDialog
+from PySide6.QtGui import QPainter, QPen, QColor, QFont, QFontMetrics, QMouseEvent, QImage, QPixmap
 from PySide6.QtCore import QRect, Qt
 
 
-FONT_NAME = "Microsoft YaHei"
-FONT_SIZE = 40
+DEFAULT_FONT_NAME = "Microsoft YaHei"
+DEFAULT_FONT_SIZE = 0.04
+
+
+def to_color(color):
+    if isinstance(color, str):
+        return QColor.fromString(color)
+    elif isinstance(color, list):
+        return QColor(*color)
+    elif isinstance(color, tuple):
+        return QColor(*color)
+    else:
+        return QColor(color)
 
 
 class AnnotationList(object):
@@ -24,6 +35,11 @@ class AnnotationList(object):
             return None
         return self.annotations[index]
 
+    def __setitem__(self, index, annotation):
+        if index is None or index < 0 or index >= len(self.annotations):
+            return
+        self.annotations[index] = annotation
+
     def add(self, annotation, index=None):
         if index is None:
             self.annotations.append(annotation)
@@ -34,7 +50,9 @@ class AnnotationList(object):
         if index is None:
             self.annotations.extend(annotations)
         else:
-            self.annotations = self.annotations[:index] + annotations + self.annotations[index:]
+            self.annotations = (
+                self.annotations[:index] + annotations + self.annotations[index:]
+            )
 
     def remove(self, index):
         if index is None:
@@ -48,8 +66,10 @@ class AnnotationList(object):
             deleted = self.annotations[-count:]
             self.annotations = self.annotations[:-count]
         else:
-            deleted = self.annotations[index:index + count]
-            self.annotations = self.annotations[:index] + self.annotations[index + count:]
+            deleted = self.annotations[index : index + count]
+            self.annotations = (
+                self.annotations[:index] + self.annotations[index + count :]
+            )
         return deleted
 
     def remove_all(self):
@@ -69,7 +89,7 @@ class Command(metaclass=abc.ABCMeta):
 
 
 class AddAnnotationCommand(Command):
-    def __init__(self, annotation_list: AnnotationList, annotation=None, index=None):
+    def __init__(self, annotation_list: AnnotationList, annotation, index=None):
         self.annotation_list = annotation_list
         self.annotation = annotation
         self.index = index
@@ -79,6 +99,21 @@ class AddAnnotationCommand(Command):
 
     def undo(self):
         self.annotation_list.remove(self.index)
+
+
+class ModifyAnnotationCommand(Command):
+    def __init__(self, annotation_list: AnnotationList, annotation, index):
+        self.annotation_list = annotation_list
+        self.annotation = annotation
+        self.index = index
+        self.old_annotation = None
+
+    def execute(self):
+        self.old_annotation = self.annotation_list[self.index]
+        self.annotation_list[self.index] = self.annotation
+
+    def undo(self):
+        self.annotation_list[self.index] = self.old_annotation
 
 
 class DeleteAnnotationCommand(Command):
@@ -138,18 +173,56 @@ class AnnoLabel(QLabel):
         super().__init__(parent)
         self.current_pos = None
         self.selected_annotation_index = None
-        self.annotation_type = 'rectangle'
+        self.annotation_type = "rectangle"
         self.annotation = None
         self.annotation_list = AnnotationList()
+        self.label = ""
         self.history: List[Command] = []
         self.undo_history: List[Command] = []
         self.on_annotation_updated = None
-        self.color = QColor(0, 255, 0)
-        self.font = QFont(FONT_NAME)
-        self.font.setPixelSize(FONT_SIZE)
+        self.font_name = DEFAULT_FONT_NAME
+        self.font_size = DEFAULT_FONT_SIZE  # 占图片高度的比例
+        self.color = QColor(0, 255, 0, 255)
+        self.fill_color = QColor(0, 255, 0, 0)
+        self.label_color = QColor(255, 255, 0, 255)
+        self.label_fill_color = QColor(255, 255, 0, 0)
+        self.mouse_font = QFont(DEFAULT_FONT_NAME)
+        self.image = None
+        self.image_region = [0, 0, 1, 1]  # [x, y, w, h]
+        self.image_region_changed = False
+        self.start_move_pos = None
+
+    def set_image(self, image: QImage):
+        if self.image != image:
+            self.image = image
+            self.image_region = [0, 0, 1, 1]  # [x, y, w, h]
+            self.image_region_changed = True
+
+    def update_image(self):
+        if self.image is None or self.image.width() == 0 or self.image.height() == 0:
+            return
+        regioned_image = self.image.copy(
+            int(self.image.width() * self.image_region[0]),
+            int(self.image.height() * self.image_region[1]),
+            int(self.image.width() * self.image_region[2]),
+            int(self.image.height() * self.image_region[3]),
+        )
+        pixmap = QPixmap.fromImage(
+            regioned_image.scaled(
+                self.size(),
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        self.setPixmap(pixmap)
 
     def paintEvent(self, event):
         ret = super().paintEvent(event)
+        if self.image is None:
+            return ret
+        if self.image_region_changed:
+            self.update_image()
+            self.image_region_changed = False
         painter = QPainter()
         painter.begin(self)
         if self.current_pos is not None:
@@ -158,13 +231,18 @@ class AnnoLabel(QLabel):
             pen.setColor(QColor(255, 255, 255, 128))
             pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)
-            painter.drawLine(0, self.current_pos.y(), self.width(), self.current_pos.y())
-            painter.drawLine(self.current_pos.x(), 0, self.current_pos.x(), self.height())
+            painter.drawLine(
+                0, self.current_pos.y(), self.width(), self.current_pos.y()
+            )
+            painter.drawLine(
+                self.current_pos.x(), 0, self.current_pos.x(), self.height()
+            )
             text = f"({self.current_pos.x()},{self.current_pos.y()})"
             pen.setColor(QColor(255, 255, 255, 255))
             painter.setPen(pen)
-            painter.setFont(self.font)
-            metrics = QFontMetrics(self.font)
+            self.mouse_font.setPixelSize(int(painter.window().height() * DEFAULT_FONT_SIZE))
+            painter.setFont(self.mouse_font)
+            metrics = QFontMetrics(self.mouse_font)
             rect = metrics.boundingRect(text)
             x = self.current_pos.x() + 5
             y = self.current_pos.y() + rect.height() - metrics.descent() + 5
@@ -178,72 +256,197 @@ class AnnoLabel(QLabel):
             pen.setWidth(6)
             pen.setColor(QColor(255, 255, 255))
             painter.setPen(pen)
-            annotation = copy.deepcopy(self.annotation_list[self.selected_annotation_index])
-            if 'text' in annotation:
-                del annotation['text']
-            if 'color' in annotation:
-                del annotation['color']
-            self.paint_annotation(painter, annotation, status="drawing")
+            annotation = copy.deepcopy(
+                self.annotation_list[self.selected_annotation_index]
+            )
+            if "text" in annotation:
+                del annotation["text"]
+            if "color" in annotation:
+                del annotation["color"]
+            if "fill_color" in annotation:
+                del annotation["fill_color"]
+            if "text_color" in annotation:
+                del annotation["text_color"]
+            if "text_fill_color" in annotation:
+                del annotation["text_fill_color"]
+            self.paint_annotation(painter, annotation, region=self.image_region, status="drawing")
         if len(self.annotation_list) > 0:
             pen = QPen()
             pen.setWidth(3)
             pen.setColor(self.color)
             painter.setPen(pen)
+            if self.annotation is not None:
+                status = "drawing other"
+            else:
+                status = None
             for i in range(len(self.annotation_list)):
-                self.paint_annotation(painter, self.annotation_list[i])
+                self.paint_annotation(painter, self.annotation_list[i], region=self.image_region, status=status)
         if self.annotation is not None:
             pen = QPen()
             pen.setWidth(3)
-            pen.setColor(QColor(self.color.red(), self.color.green(), self.color.blue(), 128))
+            pen.setColor(
+                QColor(self.color.red(), self.color.green(), self.color.blue(), 128)
+            )
             painter.setPen(pen)
-            self.paint_annotation(painter, self.annotation, status="drawing")
+            self.paint_annotation(
+                painter, self.annotation, region=self.image_region, status="drawing"
+            )
         painter.end()
         return ret
+
+    def wheelEvent(self, event):
+        if self.annotation is None and self.start_move_pos is None:
+            if self.current_pos is not None:
+                x = self.current_pos.x()
+                y = self.current_pos.y()
+            else:
+                x = self.width() // 2
+                y = self.height() // 2
+            x = (x / self.width()) * self.image_region[2] + self.image_region[0]
+            y = (y / self.height()) * self.image_region[3] + self.image_region[1]
+            w = self.image_region[2]
+            h = self.image_region[3]
+            if event.angleDelta().y() > 0:
+                w *= 0.9
+                h *= 0.9
+            else:
+                w *= 1.1
+                h *= 1.1
+            w = max(0.1, min(w, 1))
+            h = max(0.1, min(h, 1))
+            x = x - (x - self.image_region[0]) / self.image_region[2] * w
+            y = y - (y - self.image_region[1]) / self.image_region[3] * h
+            self.image_region[0] = max(0, min(x, 1 - w))
+            self.image_region[1] = max(0, min(y, 1 - h))
+            self.image_region[2] = w
+            self.image_region[3] = h
+            self.image_region_changed = True
+            self.update()
+        return super().wheelEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
             x = event.pos().x()
             y = event.pos().y()
-            x = x / self.width()
-            y = y / self.height()
+            x = (x / self.width()) * self.image_region[2] + self.image_region[0]
+            y = (y / self.height()) * self.image_region[3] + self.image_region[1]
+            x = max(0, min(x, 1))
+            y = max(0, min(y, 1))
             self.annotation = {
-                'type': self.annotation_type,
-                'x': x,
-                'y': y,
-                'x2': x,
-                'y2': y
+                "type": self.annotation_type,
+                "x": x,
+                "y": y,
+                "x2": x,
+                "y2": y,
             }
+        elif event.button() == Qt.MouseButton.MiddleButton:
+            if self.annotation is None and self.start_move_pos is None:
+                self.start_move_pos = event.pos()
         return super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton and self.annotation is not None:
             x = event.pos().x()
             y = event.pos().y()
-            x = max(0, min(x, self.width()))
-            y = max(0, min(y, self.height()))
-            x = x / self.width()
-            y = y / self.height()
-            self.annotation['x2'] = x
-            self.annotation['y2'] = y
-            if self.annotation['type'] != 'point':
-                w = int(self.annotation['x2'] * self.width()) - int(self.annotation['x'] * self.width())
-                h = int(self.annotation['y2'] * self.height()) - int(self.annotation['y'] * self.height())
-                if math.sqrt(w ** 2 + h ** 2) < 5:
+            x = (x / self.width()) * self.image_region[2] + self.image_region[0]
+            y = (y / self.height()) * self.image_region[3] + self.image_region[1]
+            x = max(0, min(x, 1))
+            y = max(0, min(y, 1))
+            self.annotation["x2"] = x
+            self.annotation["y2"] = y
+            if self.annotation["type"] != "point":
+                w = int(self.annotation["x2"] * self.width()) - int(
+                    self.annotation["x"] * self.width()
+                )
+                h = int(self.annotation["y2"] * self.height()) - int(
+                    self.annotation["y"] * self.height()
+                )
+                if math.sqrt(w**2 + h**2) < 2:
+                    self.annotation = None
+                    if self.selected_annotation_index is not None:
+                        # 按住Ctrl修改选中的annotation的text
+                        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+                            text, ok = QInputDialog.getText(
+                                self,
+                                "Input",
+                                "Please input text",
+                                text=self.annotation_list[
+                                    self.selected_annotation_index
+                                ].get("text", ""),
+                            )
+                            if ok:
+                                new_annotation = copy.deepcopy(
+                                    self.annotation_list[self.selected_annotation_index]
+                                )
+                                new_annotation["text"] = text
+                                self.execute_command(
+                                    ModifyAnnotationCommand(
+                                        self.annotation_list,
+                                        new_annotation,
+                                        self.selected_annotation_index,
+                                    )
+                                )
+                        # 按住Alt修改选中的annotation的颜色
+                        elif event.modifiers() == Qt.KeyboardModifier.AltModifier:
+                            color = self.annotation_list[
+                                self.selected_annotation_index
+                            ].get("color", self.color.name(QColor.NameFormat.HexArgb))
+                            color = QColorDialog.getColor(
+                                initial=to_color(color),
+                                parent=self,
+                            )
+                            if color.isValid():
+                                new_annotation = copy.deepcopy(
+                                    self.annotation_list[self.selected_annotation_index]
+                                )
+                                new_annotation["color"] = color.name(QColor.NameFormat.HexArgb)
+                                self.execute_command(
+                                    ModifyAnnotationCommand(
+                                        self.annotation_list,
+                                        new_annotation,
+                                        self.selected_annotation_index,
+                                    )
+                                )
+                if math.sqrt(w**2 + h**2) < 5:
                     self.annotation = None
             if self.annotation is not None:
-                if self.annotation['type'] in ["rectangle", "text"]:
-                    self.annotation['x'], self.annotation['x2'] = sorted([self.annotation['x'], self.annotation['x2']])
-                    self.annotation['y'], self.annotation['y2'] = sorted([self.annotation['y'], self.annotation['y2']])
+                if self.annotation["type"] in ["rectangle", "text"]:
+                    self.annotation["x"], self.annotation["x2"] = sorted(
+                        [self.annotation["x"], self.annotation["x2"]]
+                    )
+                    self.annotation["y"], self.annotation["y2"] = sorted(
+                        [self.annotation["y"], self.annotation["y2"]]
+                    )
                 if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                     text, ok = QInputDialog.getText(self, "Input", "Please input text")
-                    if ok and len(text) > 0:
-                        self.annotation['text'] = text
-                        if self.annotation['type'] == 'text':
-                            font = QFont(FONT_NAME)
-                            font.setPixelSize(int((self.annotation['y2'] - self.annotation['y']) * self.height() * 0.8))
+                    if ok:
+                        self.annotation["text"] = text
+                        self.annotation["text_color"] = self.label_color.name(QColor.NameFormat.HexArgb)
+                        self.annotation["text_fill_color"] = self.label_fill_color.name(QColor.NameFormat.HexArgb)
+                        self.annotation["font_name"] = self.font_name
+                        self.annotation["font_size"] = self.font_size
+                        if self.annotation["type"] == "text":
+                            font = QFont(self.font_name)
+                            font.setPixelSize(
+                                int(
+                                    (self.annotation["y2"] - self.annotation["y"])
+                                    * self.height()
+                                    * 0.8
+                                )
+                            )
                             metrics = QFontMetrics(font)
-                            self.annotation['x2'] = (self.annotation['x'] * self.width() + metrics.boundingRect(text).width()) / self.width()
-                self.annotation['color'] = self.color.getRgb()[:3]
+                            self.annotation["x2"] = (
+                                self.annotation["x"] * self.width()
+                                + metrics.boundingRect(text).width()
+                            ) / self.width()
+                if "text" not in self.annotation:
+                    self.annotation["text"] = self.label
+                    self.annotation["text_color"] = self.label_color.name(QColor.NameFormat.HexArgb)
+                    self.annotation["text_fill_color"] = self.label_fill_color.name(QColor.NameFormat.HexArgb)
+                    self.annotation["font_name"] = self.font_name
+                    self.annotation["font_size"] = self.font_size
+                self.annotation["color"] = self.color.name(QColor.NameFormat.HexArgb)
+                self.annotation["fill_color"] = self.fill_color.name(QColor.NameFormat.HexArgb)
                 self.add_annotation(self.annotation)
                 self.annotation = None
         if event.button() == Qt.MouseButton.RightButton:
@@ -255,23 +458,41 @@ class AnnoLabel(QLabel):
                 if self.selected_annotation_index is not None:
                     self.delete_annotation(self.selected_annotation_index)
                     self.selected_annotation_index = self.find_nearest_annotation(x, y)
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self.start_move_pos = None
         return super().mouseReleaseEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if self.annotation is not None:
             x = event.pos().x()
             y = event.pos().y()
-            x = max(0, min(x, self.width()))
-            y = max(0, min(y, self.height()))
-            x = x / self.width()
-            y = y / self.height()
-            self.annotation['x2'] = x
-            self.annotation['y2'] = y
-        if event.button() == Qt.MouseButton.NoButton:
+            x = (x / self.width()) * self.image_region[2] + self.image_region[0]
+            y = (y / self.height()) * self.image_region[3] + self.image_region[1]
+            x = max(0, min(x, 1))
+            y = max(0, min(y, 1))
+            self.annotation["x2"] = x
+            self.annotation["y2"] = y
+        else:
             x = event.pos().x()
             y = event.pos().y()
             nearest = self.find_nearest_annotation(x, y)
             self.selected_annotation_index = nearest
+            if self.start_move_pos is not None:
+                move_x = (event.pos().x() - self.start_move_pos.x()) / self.width()
+                move_y = (event.pos().y() - self.start_move_pos.y()) / self.height()
+
+                # Adjust the move factors by the current zoom level
+                move_x *= self.image_region[2]
+                move_y *= self.image_region[3]
+
+                new_region_x = self.image_region[0] - move_x
+                new_region_y = self.image_region[1] - move_y
+
+                self.image_region[0] = max(0, min(new_region_x, 1 - self.image_region[2]))
+                self.image_region[1] = max(0, min(new_region_y, 1 - self.image_region[3]))
+
+                self.image_region_changed = True
+                self.start_move_pos = event.pos()
         self.current_pos = event.pos()
         self.update()
         return super().mouseMoveEvent(event)
@@ -288,6 +509,9 @@ class AnnoLabel(QLabel):
         self.annotation = None
         self.notify()
         self.update()
+
+    def clear_annotations(self):
+        self.execute_command(DeleteAllAnnotationCommand(self.annotation_list))
 
     def execute_command(self, command: Command):
         command.execute()
@@ -330,90 +554,35 @@ class AnnoLabel(QLabel):
         command = DeleteAllAnnotationCommand(self.annotation_list)
         self.execute_command(command)
 
-    @staticmethod
-    def paint_annotation(painter: QPainter, annotation, status=None):
-        if annotation is None:
-            return
-        if "color" in annotation:
-            color = QColor(*annotation["color"])
-            pen = painter.pen()
-            pen.setColor(color)
-            painter.setPen(pen)
-        x = int(annotation['x'] * painter.window().width())
-        y = int(annotation['y'] * painter.window().height())
-        x2 = int(annotation['x2'] * painter.window().width())
-        y2 = int(annotation['y2'] * painter.window().height())
-        if annotation['type'] == 'point':
-            painter.drawPoint(x2, y2)
-        elif annotation['type'] == 'circle':
-            painter.drawEllipse(x, y, x2 - x, y2 - y)
-        elif annotation['type'] == 'rectangle':
-            painter.drawRect(QRect(x, y, x2 - x, y2 - y))
-        elif annotation['type'] == 'text' and status == "drawing":
-            painter.drawRect(QRect(x, y, x2 - x, y2 - y))
-        if 'text' in annotation and annotation['text'] != '':
-            text = annotation['text']
-            font = QFont(FONT_NAME)
-            if annotation['type'] == 'text':
-                font.setPixelSize(int((y2 - y) * 0.8))
-            else:
-                font.setPixelSize(FONT_SIZE)
-            painter.setFont(font)
-            metrics = QFontMetrics(font)
-            rect = metrics.boundingRect(text)
-            # if annotation['type'] == 'text':
-            #     foreground_color = painter.pen().color()
-            # else:
-            foreground_color = painter.pen().color()
-            foreground_color = QColor.fromRgb(255, 255, 0).lighter(100)
-            pen = painter.pen()
-            pen.setColor(foreground_color)
-            painter.setPen(pen)
-            background_color = QColor(255 - foreground_color.red(), 255 - foreground_color.green(), 255 - foreground_color.blue(), 200)
-            if annotation["type"] == 'point':
-                x = x - rect.width() // 2
-                y = y - metrics.descent() - rect.height() // 3
-            elif annotation["type"] == 'circle':
-                radius = int(math.sqrt((x2 - x) ** 2 + (y2 - y) ** 2))
-                x = x - rect.width() // 2
-                y = y - radius - metrics.descent()
-            elif annotation["type"] == 'rectangle':
-                y = y - metrics.descent()
-            elif annotation["type"] == 'text':
-                x = x
-                y = y2 - metrics.descent()
-            # painter.fillRect(rect.translated(x, y), background_color)
-            painter.drawText(x, y, text)
-
     def find_nearest_annotation(self, x, y):
         nearest = None
-        nearest_d = float('inf')
+        nearest_d = float("inf")
         for i in range(len(self.annotation_list)):
             annotation = self.annotation_list[i]
-            if annotation['type'] == 'point':
-                anno_x = int(annotation['x2'] * self.width())
-                anno_y = int(annotation['y2'] * self.height())
+            if annotation["type"] == "point":
+                anno_x = int((annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width())
+                anno_y = int((annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height())
                 d = math.sqrt((x - anno_x) ** 2 + (y - anno_y) ** 2)
                 if d < 5:
                     if nearest_d > d:
                         nearest_d = d
                         nearest = i
-            elif annotation['type'] == 'circle':
-                anno_x = int(annotation['x'] * self.width())
-                anno_y = int(annotation['y'] * self.height())
-                anno_x2 = int(annotation['x2'] * self.width())
-                anno_y2 = int(annotation['y2'] * self.height())
+            elif annotation["type"] == "circle":
+                anno_x = int((annotation["x"] - self.image_region[0]) / self.image_region[2] * self.width())
+                anno_y = int((annotation["y"] - self.image_region[1]) / self.image_region[3] * self.height())
+                anno_x2 = int((annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width())
+                anno_y2 = int((annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height())
                 r = int(math.sqrt((anno_x2 - anno_x) ** 2 + (anno_y2 - anno_y) ** 2))
                 d = math.sqrt((x - anno_x) ** 2 + (y - anno_y) ** 2)
                 if d < r:
                     if nearest_d > d:
                         nearest_d = d
                         nearest = i
-            elif annotation['type'] in ['rectangle', 'text']:
-                anno_x = int(annotation['x'] * self.width())
-                anno_y = int(annotation['y'] * self.height())
-                anno_x2 = int(annotation['x2'] * self.width())
-                anno_y2 = int(annotation['y2'] * self.height())
+            elif annotation["type"] in ["rectangle", "text"]:
+                anno_x = int((annotation["x"] - self.image_region[0]) / self.image_region[2] * self.width())
+                anno_y = int((annotation["y"] - self.image_region[1]) / self.image_region[3] * self.height())
+                anno_x2 = int((annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width())
+                anno_y2 = int((annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height())
                 if x >= anno_x and x <= anno_x2 and y >= anno_y and y <= anno_y2:
                     cx = (anno_x + anno_x2) / 2
                     cy = (anno_y + anno_y2) / 2
@@ -422,3 +591,67 @@ class AnnoLabel(QLabel):
                         nearest_d = d
                         nearest = i
         return nearest
+
+    @staticmethod
+    def paint_annotation(
+        painter: QPainter, annotation, region=[0, 0, 1, 1], status=None
+    ):
+        if annotation is None:
+            return
+        if "color" in annotation:
+            color = to_color(annotation["color"])
+            if status == "drawing other":
+                color = color.lighter(100)
+            pen = painter.pen()
+            pen.setColor(color)
+            painter.setPen(pen)
+        x = int((annotation["x"] - region[0]) / region[2] * painter.window().width())
+        y = int((annotation["y"] - region[1]) / region[3] * painter.window().height())
+        x2 = int((annotation["x2"] - region[0]) / region[2] * painter.window().width())
+        y2 = int((annotation["y2"] - region[1]) / region[3] * painter.window().height())
+        if annotation["type"] == "point":
+            painter.drawPoint(x2, y2)
+        elif annotation["type"] == "circle":
+            painter.drawEllipse(x, y, x2 - x, y2 - y)
+        elif annotation["type"] == "rectangle":
+            painter.drawRect(QRect(x, y, x2 - x, y2 - y))
+        elif annotation["type"] == "text" and status == "drawing":
+            painter.drawRect(QRect(x, y, x2 - x, y2 - y))
+        if "text" in annotation and annotation["text"] != "":
+            text = annotation.get("text", "")
+            font_name = annotation.get("font_name", DEFAULT_FONT_NAME)
+            font_size = annotation.get("font_size", DEFAULT_FONT_SIZE)
+            font = QFont(font_name)
+            if annotation["type"] == "text":
+                font.setPixelSize(int((y2 - y) * 0.8))
+            else:
+                font.setPixelSize(int(painter.window().height() * font_size))
+            painter.setFont(font)
+            metrics = QFontMetrics(font)
+            rect = metrics.boundingRect(text)
+            if annotation['type'] == 'text':
+                foreground_color = painter.pen().color()
+            else:
+                if "text_color" in annotation:
+                    foreground_color = to_color(annotation["text_color"])
+                else:
+                    foreground_color = QColor(255, 255, 0, 150)
+            pen = painter.pen()
+            pen.setColor(foreground_color)
+            painter.setPen(pen)
+            if annotation["type"] == "point":
+                x = x - rect.width() // 2
+                y = y - metrics.descent() - rect.height() // 3
+            elif annotation["type"] == "circle":
+                radius = int(math.sqrt((x2 - x) ** 2 + (y2 - y) ** 2))
+                x = x - rect.width() // 2
+                y = y - radius - metrics.descent()
+            elif annotation["type"] == "rectangle":
+                y = y - metrics.descent()
+            elif annotation["type"] == "text":
+                x = x
+                y = y2 - metrics.descent()
+            if "text_fill_color" in annotation:
+                background_color = to_color(annotation["text_fill_color"])
+                painter.fillRect(rect.translated(x, y), background_color)
+            painter.drawText(x, y, text)

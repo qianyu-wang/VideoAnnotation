@@ -1,7 +1,7 @@
 from typing import Tuple
 import torch
 from PIL import Image
-from PyQt6.QtWidgets import QInputDialog
+from PySide6.QtWidgets import QInputDialog
 from transformers import DetrForObjectDetection, DetrImageProcessor
 
 
