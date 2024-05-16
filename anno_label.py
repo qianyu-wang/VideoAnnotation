@@ -4,12 +4,15 @@ import math
 from typing import List
 
 from PySide6.QtWidgets import QLabel, QInputDialog, QColorDialog
-from PySide6.QtGui import QPainter, QPen, QColor, QFont, QFontMetrics, QMouseEvent, QImage, QPixmap
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QPainter, QPen, QColor, QFont, QFontMetrics, QMouseEvent, QImage, QPixmap, QPainterPath
+from PySide6.QtCore import QRect, QPoint, Qt
 
 
+DEFAULT_COLOR = QColor(255, 0, 0, 255).name(QColor.NameFormat.HexArgb)
+DEFAULT_TEXT_COLOR = QColor(255, 255, 0, 255).name(QColor.NameFormat.HexArgb)
 DEFAULT_FONT_NAME = "Microsoft YaHei"
 DEFAULT_FONT_SIZE = 0.04
+DEFAULT_THICKNESS = 0.005
 
 
 def to_color(color):
@@ -182,10 +185,11 @@ class AnnoLabel(QLabel):
         self.on_annotation_updated = None
         self.font_name = DEFAULT_FONT_NAME
         self.font_size = DEFAULT_FONT_SIZE  # 占图片高度的比例
-        self.color = QColor(0, 255, 0, 255)
-        self.fill_color = QColor(0, 255, 0, 0)
-        self.label_color = QColor(255, 255, 0, 255)
-        self.label_fill_color = QColor(255, 255, 0, 0)
+        self.color = QColor(0, 255, 0, 255).name(QColor.NameFormat.HexArgb)
+        self.fill_color = QColor(0, 255, 0, 0).name(QColor.NameFormat.HexArgb)
+        self.thickness = DEFAULT_THICKNESS
+        self.text_color = QColor(255, 255, 0, 255).name(QColor.NameFormat.HexArgb)
+        self.label_fill_color = QColor(255, 255, 0, 0).name(QColor.NameFormat.HexArgb)
         self.mouse_font = QFont(DEFAULT_FONT_NAME)
         self.image = None
         self.image_region = [0, 0, 1, 1]  # [x, y, w, h]
@@ -197,6 +201,7 @@ class AnnoLabel(QLabel):
             self.image = image
             self.image_region = [0, 0, 1, 1]  # [x, y, w, h]
             self.image_region_changed = True
+            self.start_move_pos = None
 
     def update_image(self):
         if self.image is None or self.image.width() == 0 or self.image.height() == 0:
@@ -229,6 +234,7 @@ class AnnoLabel(QLabel):
             pen = QPen()
             pen.setWidth(2)
             pen.setColor(QColor(255, 255, 255, 128))
+            pen.setWidth(int(DEFAULT_THICKNESS * painter.window().height()))
             pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.drawLine(
@@ -237,8 +243,11 @@ class AnnoLabel(QLabel):
             painter.drawLine(
                 self.current_pos.x(), 0, self.current_pos.x(), self.height()
             )
-            text = f"({self.current_pos.x()},{self.current_pos.y()})"
+            x = int(((self.current_pos.x() / self.width()) * self.image_region[2] + self.image_region[0]) * self.image.width())
+            y = int(((self.current_pos.y() / self.height()) * self.image_region[3] + self.image_region[1]) * self.image.height())
+            text = f"({x},{y})"
             pen.setColor(QColor(255, 255, 255, 255))
+            pen.setWidth(2)
             painter.setPen(pen)
             self.mouse_font.setPixelSize(int(painter.window().height() * DEFAULT_FONT_SIZE))
             painter.setFont(self.mouse_font)
@@ -252,44 +261,64 @@ class AnnoLabel(QLabel):
                 y = self.current_pos.y() - rect.height() - metrics.descent() - 5
             painter.drawText(x, y, text)
         if self.selected_annotation_index is not None:
-            pen = QPen()
-            pen.setWidth(6)
-            pen.setColor(QColor(255, 255, 255))
-            painter.setPen(pen)
             annotation = copy.deepcopy(
                 self.annotation_list[self.selected_annotation_index]
             )
-            if "text" in annotation:
-                del annotation["text"]
-            if "color" in annotation:
-                del annotation["color"]
-            if "fill_color" in annotation:
-                del annotation["fill_color"]
-            if "text_color" in annotation:
-                del annotation["text_color"]
-            if "text_fill_color" in annotation:
-                del annotation["text_fill_color"]
-            self.paint_annotation(painter, annotation, region=self.image_region, status="drawing")
+            thickness = annotation.get("thickness", self.thickness)
+            for key in [
+                "text", "color", "fill_color", "thickness", "text_color", "text_fill_color", "font_name", "font_size"
+            ]:
+                if key in annotation:
+                    del annotation[key]
+            annotation["color"] = QColor(255, 255, 255, 255).name(QColor.NameFormat.HexArgb)
+            annotation["thickness"] = thickness * 2
+            self.paint_annotation(
+                painter,
+                annotation,
+                region=self.image_region,
+                status="drawing",
+                default_color=self.color,
+                default_text_color=self.text_color,
+                default_thickness=self.thickness,
+                default_font=self.font_name,
+                default_font_size=self.font_size,
+            )
         if len(self.annotation_list) > 0:
             pen = QPen()
-            pen.setWidth(3)
-            pen.setColor(self.color)
+            pen.setWidth(int(self.thickness * painter.window().height()))
+            pen.setColor(QColor.fromString(self.color))
             painter.setPen(pen)
             if self.annotation is not None:
                 status = "drawing other"
             else:
                 status = None
             for i in range(len(self.annotation_list)):
-                self.paint_annotation(painter, self.annotation_list[i], region=self.image_region, status=status)
+                self.paint_annotation(
+                    painter,
+                    self.annotation_list[i],
+                    region=self.image_region,
+                    status=status,
+                    default_color=self.color,
+                    default_text_color=self.text_color,
+                    default_thickness=self.thickness,
+                    default_font=self.font_name,
+                    default_font_size=self.font_size,
+                )
         if self.annotation is not None:
             pen = QPen()
-            pen.setWidth(3)
-            pen.setColor(
-                QColor(self.color.red(), self.color.green(), self.color.blue(), 128)
-            )
+            pen.setWidth(int(self.thickness * painter.window().height()))
+            pen.setColor(QColor.fromString(self.color))
             painter.setPen(pen)
             self.paint_annotation(
-                painter, self.annotation, region=self.image_region, status="drawing"
+                painter,
+                self.annotation,
+                region=self.image_region,
+                status="drawing",
+                default_color=self.color,
+                default_text_color=self.text_color,
+                default_thickness=self.thickness,
+                default_font=self.font_name,
+                default_font_size=self.font_size,
             )
         painter.end()
         return ret
@@ -355,13 +384,9 @@ class AnnoLabel(QLabel):
             self.annotation["x2"] = x
             self.annotation["y2"] = y
             if self.annotation["type"] != "point":
-                w = int(self.annotation["x2"] * self.width()) - int(
-                    self.annotation["x"] * self.width()
-                )
-                h = int(self.annotation["y2"] * self.height()) - int(
-                    self.annotation["y"] * self.height()
-                )
-                if math.sqrt(w**2 + h**2) < 2:
+                w = int((self.annotation["x2"] - self.annotation["x"]) * self.image.width())
+                h = int((self.annotation["y2"] - self.annotation["y"]) * self.image.height())
+                if w**2 + h**2 < 4**2:  # 小于4像素的annotation忽略
                     self.annotation = None
                     if self.selected_annotation_index is not None:
                         # 按住Ctrl修改选中的annotation的text
@@ -390,7 +415,7 @@ class AnnoLabel(QLabel):
                         elif event.modifiers() == Qt.KeyboardModifier.AltModifier:
                             color = self.annotation_list[
                                 self.selected_annotation_index
-                            ].get("color", self.color.name(QColor.NameFormat.HexArgb))
+                            ].get("color", self.color)
                             color = QColorDialog.getColor(
                                 initial=to_color(color),
                                 parent=self,
@@ -407,8 +432,6 @@ class AnnoLabel(QLabel):
                                         self.selected_annotation_index,
                                     )
                                 )
-                if math.sqrt(w**2 + h**2) < 5:
-                    self.annotation = None
             if self.annotation is not None:
                 if self.annotation["type"] in ["rectangle", "text"]:
                     self.annotation["x"], self.annotation["x2"] = sorted(
@@ -421,7 +444,7 @@ class AnnoLabel(QLabel):
                     text, ok = QInputDialog.getText(self, "Input", "Please input text")
                     if ok:
                         self.annotation["text"] = text
-                        self.annotation["text_color"] = self.label_color.name(QColor.NameFormat.HexArgb)
+                        self.annotation["text_color"] = self.text_color.name(QColor.NameFormat.HexArgb)
                         self.annotation["text_fill_color"] = self.label_fill_color.name(QColor.NameFormat.HexArgb)
                         self.annotation["font_name"] = self.font_name
                         self.annotation["font_size"] = self.font_size
@@ -441,12 +464,13 @@ class AnnoLabel(QLabel):
                             ) / self.width()
                 if "text" not in self.annotation:
                     self.annotation["text"] = self.label
-                    self.annotation["text_color"] = self.label_color.name(QColor.NameFormat.HexArgb)
-                    self.annotation["text_fill_color"] = self.label_fill_color.name(QColor.NameFormat.HexArgb)
+                    self.annotation["text_color"] = self.text_color
+                    self.annotation["text_fill_color"] = self.label_fill_color
                     self.annotation["font_name"] = self.font_name
                     self.annotation["font_size"] = self.font_size
-                self.annotation["color"] = self.color.name(QColor.NameFormat.HexArgb)
-                self.annotation["fill_color"] = self.fill_color.name(QColor.NameFormat.HexArgb)
+                self.annotation["color"] = self.color
+                self.annotation["fill_color"] = self.fill_color
+                self.annotation["thickness"] = self.thickness
                 self.add_annotation(self.annotation)
                 self.annotation = None
         if event.button() == Qt.MouseButton.RightButton:
@@ -504,6 +528,7 @@ class AnnoLabel(QLabel):
     def init_annotations(self, annotations):
         self.annotation_list.remove_all()
         self.annotation_list.batch_add(annotations)
+        self.selected_annotation_index = None
         self.history = []
         self.undo_history = []
         self.annotation = None
@@ -594,23 +619,36 @@ class AnnoLabel(QLabel):
 
     @staticmethod
     def paint_annotation(
-        painter: QPainter, annotation, region=[0, 0, 1, 1], status=None
+        painter: QPainter,
+        annotation,
+        region=[0, 0, 1, 1],
+        status=None,
+        default_color=DEFAULT_COLOR,
+        default_text_color=DEFAULT_TEXT_COLOR,
+        default_font=DEFAULT_FONT_NAME,
+        default_font_size=DEFAULT_FONT_SIZE,
+        default_thickness=DEFAULT_THICKNESS,
     ):
         if annotation is None:
             return
-        if "color" in annotation:
-            color = to_color(annotation["color"])
-            if status == "drawing other":
-                color = color.lighter(100)
-            pen = painter.pen()
-            pen.setColor(color)
-            painter.setPen(pen)
+        color = to_color(annotation.get("color", default_color))
+        if status == "drawing other":
+            color.setAlpha(100)
+        pen = painter.pen()
+        pen.setColor(color)
+        painter.setPen(pen)
+        thickness = int(annotation.get("thickness", default_thickness) * painter.window().height())
+        pen = painter.pen()
+        pen.setWidth(thickness)
+        painter.setPen(pen)
         x = int((annotation["x"] - region[0]) / region[2] * painter.window().width())
         y = int((annotation["y"] - region[1]) / region[3] * painter.window().height())
         x2 = int((annotation["x2"] - region[0]) / region[2] * painter.window().width())
         y2 = int((annotation["y2"] - region[1]) / region[3] * painter.window().height())
         if annotation["type"] == "point":
-            painter.drawPoint(x2, y2)
+            path = QPainterPath()
+            path.addEllipse(QPoint(x2, y2), thickness // 2, thickness // 2)
+            painter.fillPath(path, color)
         elif annotation["type"] == "circle":
             painter.drawEllipse(x, y, x2 - x, y2 - y)
         elif annotation["type"] == "rectangle":
@@ -619,8 +657,8 @@ class AnnoLabel(QLabel):
             painter.drawRect(QRect(x, y, x2 - x, y2 - y))
         if "text" in annotation and annotation["text"] != "":
             text = annotation.get("text", "")
-            font_name = annotation.get("font_name", DEFAULT_FONT_NAME)
-            font_size = annotation.get("font_size", DEFAULT_FONT_SIZE)
+            font_name = annotation.get("font_name", default_font)
+            font_size = annotation.get("font_size", default_font_size)
             font = QFont(font_name)
             if annotation["type"] == "text":
                 font.setPixelSize(int((y2 - y) * 0.8))
@@ -635,7 +673,7 @@ class AnnoLabel(QLabel):
                 if "text_color" in annotation:
                     foreground_color = to_color(annotation["text_color"])
                 else:
-                    foreground_color = QColor(255, 255, 0, 150)
+                    foreground_color = to_color(default_text_color)
             pen = painter.pen()
             pen.setColor(foreground_color)
             painter.setPen(pen)

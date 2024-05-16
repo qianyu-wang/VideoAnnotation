@@ -16,21 +16,28 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,0,0,0,0,1">
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0">
+     <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0,0">
       <item>
        <widget class="QLineEdit" name="text_file"/>
       </item>
       <item>
        <widget class="QPushButton" name="button_select_file">
         <property name="text">
-         <string>select video</string>
+         <string>select file</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="button_select_folder">
+        <property name="text">
+         <string>select folder</string>
         </property>
        </widget>
       </item>
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,0,0,0,0,0">
+     <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,0,0,0,0,0,0">
       <item>
        <spacer name="horizontalSpacer_5">
         <property name="orientation">
@@ -140,11 +147,14 @@
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="button_copy_to_all">
+       <widget class="QLabel" name="label_12">
         <property name="text">
-         <string>copy last annotation to all frames</string>
+         <string>thickness</string>
         </property>
        </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="text_thickness"/>
       </item>
       <item>
        <spacer name="horizontalSpacer_4">
@@ -485,6 +495,13 @@
          </size>
         </property>
        </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="button_copy_to_all">
+        <property name="text">
+         <string>copy last annotation to all frames</string>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="QPushButton" name="button_clear">

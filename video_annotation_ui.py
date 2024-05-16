@@ -43,6 +43,11 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_2.addWidget(self.button_select_file)
 
+        self.button_select_folder = QPushButton(self.centralwidget)
+        self.button_select_folder.setObjectName(u"button_select_folder")
+
+        self.horizontalLayout_2.addWidget(self.button_select_folder)
+
 
         self.verticalLayout.addLayout(self.horizontalLayout_2)
 
@@ -97,10 +102,15 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout.addWidget(self.button_fill_color)
 
-        self.button_copy_to_all = QPushButton(self.centralwidget)
-        self.button_copy_to_all.setObjectName(u"button_copy_to_all")
+        self.label_12 = QLabel(self.centralwidget)
+        self.label_12.setObjectName(u"label_12")
 
-        self.horizontalLayout.addWidget(self.button_copy_to_all)
+        self.horizontalLayout.addWidget(self.label_12)
+
+        self.text_thickness = QLineEdit(self.centralwidget)
+        self.text_thickness.setObjectName(u"text_thickness")
+
+        self.horizontalLayout.addWidget(self.text_thickness)
 
         self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
@@ -303,6 +313,11 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_3.addItem(self.horizontalSpacer_3)
 
+        self.button_copy_to_all = QPushButton(self.centralwidget)
+        self.button_copy_to_all.setObjectName(u"button_copy_to_all")
+
+        self.horizontalLayout_3.addWidget(self.button_copy_to_all)
+
         self.button_clear = QPushButton(self.centralwidget)
         self.button_clear.setObjectName(u"button_clear")
 
@@ -346,7 +361,8 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"Video Annotation", None))
-        self.button_select_file.setText(QCoreApplication.translate("MainWindow", u"select video", None))
+        self.button_select_file.setText(QCoreApplication.translate("MainWindow", u"select file", None))
+        self.button_select_folder.setText(QCoreApplication.translate("MainWindow", u"select folder", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"annotation type", None))
         self.combo_type.setItemText(0, QCoreApplication.translate("MainWindow", u"rectangle", None))
         self.combo_type.setItemText(1, QCoreApplication.translate("MainWindow", u"text", None))
@@ -357,7 +373,7 @@ class Ui_MainWindow(object):
         self.button_color.setText("")
         self.label_11.setText(QCoreApplication.translate("MainWindow", u"fill color", None))
         self.button_fill_color.setText("")
-        self.button_copy_to_all.setText(QCoreApplication.translate("MainWindow", u"copy last annotation to all frames", None))
+        self.label_12.setText(QCoreApplication.translate("MainWindow", u"thickness", None))
         self.label_6.setText(QCoreApplication.translate("MainWindow", u"label", None))
         self.label_9.setText(QCoreApplication.translate("MainWindow", u"label color", None))
         self.button_label_color.setText("")
@@ -377,6 +393,7 @@ class Ui_MainWindow(object):
         self.label_total.setText(QCoreApplication.translate("MainWindow", u"/0", None))
         self.button_next.setText(QCoreApplication.translate("MainWindow", u"next image", None))
         self.button_redo.setText(QCoreApplication.translate("MainWindow", u"redo", None))
+        self.button_copy_to_all.setText(QCoreApplication.translate("MainWindow", u"copy last annotation to all frames", None))
         self.button_clear.setText(QCoreApplication.translate("MainWindow", u"clear current frame", None))
         self.button_export.setText(QCoreApplication.translate("MainWindow", u"export", None))
         self.label_anno.setText("")

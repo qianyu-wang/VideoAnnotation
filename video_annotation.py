@@ -153,22 +153,24 @@ class VideoAnnotationTool(QMainWindow):
         self.anno_provider_name = None
         self.anno_provider = None
 
+        self.ui.text_thickness.setText(f'{self.ui.label_anno.thickness * 100:.2f}')
         self.ui.text_label_font.setText(self.ui.label_anno.font_name)
         self.ui.text_label_size.setText(f"{self.ui.label_anno.font_size * 100:.2f}")
         self.ui.button_color.setStyleSheet(
-            f"background-color: {self.ui.label_anno.color.name(QColor.NameFormat.HexArgb)};"
+            f"background-color: {self.ui.label_anno.color};"
         )
         self.ui.button_fill_color.setStyleSheet(
-            f"background-color: {self.ui.label_anno.fill_color.name(QColor.NameFormat.HexArgb)};"
+            f"background-color: {self.ui.label_anno.fill_color};"
         )
         self.ui.button_label_color.setStyleSheet(
-            f"background-color: {self.ui.label_anno.label_color.name(QColor.NameFormat.HexArgb)};"
+            f"background-color: {self.ui.label_anno.text_color};"
         )
         self.ui.button_label_fill_color.setStyleSheet(
-            f"background-color: {self.ui.label_anno.label_fill_color.name(QColor.NameFormat.HexArgb)};"
+            f"background-color: {self.ui.label_anno.label_fill_color};"
         )
 
         self.ui.button_select_file.clicked.connect(self.select_file)
+        self.ui.button_select_folder.clicked.connect(self.select_folder)
         self.ui.button_next.clicked.connect(self.next_image)
         self.ui.button_previous.clicked.connect(self.previous_image)
         self.ui.button_undo.clicked.connect(self.undo)
@@ -183,7 +185,8 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.button_track.clicked.connect(self.run_track)
         self.ui.button_clear.clicked.connect(self.clear_annotation)
         self.ui.text_file.returnPressed.connect(self.load_file)
-        self.ui.text_file.editingFinished.connect(self.load_file)
+        self.ui.text_thickness.returnPressed.connect(self.change_thickness)
+        self.ui.text_thickness.editingFinished.connect(self.change_thickness)
         self.ui.text_current.returnPressed.connect(self.load_image)
         self.ui.text_current.editingFinished.connect(self.load_image)
         self.ui.combo_type.currentTextChanged.connect(self.type_changed)
@@ -212,7 +215,7 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.combo_anno_provider.addItem("")
         self.anno_provider_name = None
         self.anno_provider = None
-        for provider_path in (Path(__file__).parent / "anno_provider").iterdir():
+        for provider_path in (Path(".") / "anno_provider").iterdir():
             if provider_path.is_file() and provider_path.suffix == '.py' and provider_path.stem != '__init__':
                 self.ui.combo_anno_provider.addItem(provider_path.stem)
             elif provider_path.is_dir() and (provider_path / '__init__.py').exists() and provider_path.name != '__pycache__':
@@ -238,7 +241,17 @@ class VideoAnnotationTool(QMainWindow):
         else:
             QMessageBox.critical(self, 'Error', 'Unsupported file format')
             return
-        Export(image_provider, image_writer, self.annotation_dir, self)
+        Export(
+            image_provider,
+            image_writer,
+            self.annotation_dir,
+            self.ui.label_anno.color,
+            self.ui.label_anno.text_color,
+            self.ui.label_anno.font_name,
+            self.ui.label_anno.font_size,
+            self.ui.label_anno.thickness,
+            parent=self,
+        )
         QMessageBox.information(self, 'Information',
                                 f'Export to {image_writer.filename} finished.')
 
@@ -249,9 +262,9 @@ class VideoAnnotationTool(QMainWindow):
             options=QColorDialog.ColorDialogOption.ShowAlphaChannel,
         )
         if color.isValid():
-            self.ui.label_anno.color = color
+            self.ui.label_anno.color = color.name(QColor.NameFormat.HexArgb)
             self.ui.button_color.setStyleSheet(
-                f"background-color: rgba({self.ui.label_anno.color.name(QColor.NameFormat.HexArgb)});"
+                f"background-color: {self.ui.label_anno.color};"
             )
 
     def change_fill_color(self):
@@ -261,21 +274,21 @@ class VideoAnnotationTool(QMainWindow):
             options=QColorDialog.ColorDialogOption.ShowAlphaChannel,
         )
         if color.isValid():
-            self.ui.label_anno.fill_color = color
+            self.ui.label_anno.fill_color = color.name(QColor.NameFormat.HexArgb)
             self.ui.button_fill_color.setStyleSheet(
-                f"background-color: {self.ui.label_anno.fill_color.name(QColor.NameFormat.HexArgb)};"
+                f"background-color: {self.ui.label_anno.fill_color};"
             )
 
     def change_label_color(self):
         color = QColorDialog.getColor(
-            initial=self.ui.label_anno.label_color,
+            initial=self.ui.label_anno.text_color,
             parent=self,
             options=QColorDialog.ColorDialogOption.ShowAlphaChannel,
         )
         if color.isValid():
-            self.ui.label_anno.label_color = color
+            self.ui.label_anno.text_color = color.name(QColor.NameFormat.HexArgb)
             self.ui.button_label_color.setStyleSheet(
-                f"background-color: {self.ui.label_anno.label_color.name(QColor.NameFormat.HexArgb)};"
+                f"background-color: {self.ui.label_anno.text_color};"
             )
 
     def change_label_fill_color(self):
@@ -285,10 +298,17 @@ class VideoAnnotationTool(QMainWindow):
             options=QColorDialog.ColorDialogOption.ShowAlphaChannel,
         )
         if color.isValid():
-            self.ui.label_anno.label_fill_color = color
+            self.ui.label_anno.label_fill_color = color.name(QColor.NameFormat.HexArgb)
             self.ui.button_label_fill_color.setStyleSheet(
-                f"background-color: {self.ui.label_anno.label_fill_color.name(QColor.NameFormat.HexArgb)};"
+                f"background-color: {self.ui.label_anno.label_fill_color};"
             )
+
+    def change_thickness(self):
+        try:
+            self.ui.label_anno.thickness = float(self.ui.text_thickness.text()) / 100
+        except:
+            pass
+        self.ui.text_thickness.setText(f'{self.ui.label_anno.thickness * 100:.2f}')
 
     def change_label(self):
         self.ui.label_anno.label = self.ui.text_label.text()
@@ -380,8 +400,25 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.text_file.setText(filename)
         self.load_file()
 
+    def select_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, 'Choose Folder')
+        if folder == '':
+            return
+        self.ui.text_file.setText(folder)
+        self.load_file()
+
     def load_file(self):
-        self.file_path = Path(self.ui.text_file.text())
+        path = (
+            self.ui.text_file.text()
+            .strip()
+            .removeprefix('"')
+            .removeprefix("'")
+            .removeprefix("file://")
+            .removesuffix('"')
+            .removesuffix("'")
+        )
+        self.file_path = Path(path)
+        self.ui.text_file.setText(str(self.file_path))
         if not self.file_path.exists():
             QMessageBox.critical(self, 'Error', 'File not exists')
             return
@@ -438,22 +475,44 @@ class VideoAnnotationTool(QMainWindow):
         img = previous_image
         buffer_ = img.bits()
         buffer_.cast('B').release()
-        cv2_img = np.asarray(buffer_).reshape(img.height(), img.width(), 4)
-        cv_previous_image = cv2.cvtColor(cv2_img, cv2.COLOR_RGBA2BGR)
+        channel = len(buffer_) // img.height() // img.width()
+        cv2_img = np.asarray(buffer_).reshape(img.height(), img.width(), channel)
+        if channel == 4:
+            cv_previous_image = cv2.cvtColor(cv2_img, cv2.COLOR_RGBA2BGR)
+        elif channel == 3:
+            cv_previous_image = cv2.cvtColor(cv2_img, cv2.COLOR_RGB2BGR)
         current_image: QImage = self.image_provider.get_image()
         img = current_image
         buffer_ = img.bits()
         buffer_.cast("B").release()
-        cv2_img = np.asarray(buffer_).reshape(img.height(), img.width(), 4)
-        cv_current_image = cv2.cvtColor(cv2_img, cv2.COLOR_RGBA2BGR)
+        channel = len(buffer_) // img.height() // img.width()
+        cv2_img = np.asarray(buffer_).reshape(img.height(), img.width(), channel)
+        if channel == 4:
+            cv_current_image = cv2.cvtColor(cv2_img, cv2.COLOR_RGBA2BGR)
+        elif channel == 3:
+            cv_current_image = cv2.cvtColor(cv2_img, cv2.COLOR_RGB2BGR)
         current_annotations = []
         for annotation in previous_annotations:
+            box = None
             if annotation['type'] in ['rectangle']:
                 x1 = int(annotation['x'] * previous_image.width())
                 y1 = int(annotation['y'] * previous_image.height())
                 x2 = int(annotation['x2'] * previous_image.width())
                 y2 = int(annotation["y2"] * previous_image.height())
                 box = x1, y1, x2 - x1, y2 - y1
+            elif annotation['type'] in ['point']:
+                w = 30
+                h = 30
+                x = int(annotation['x2'] * previous_image.width()) - w // 2
+                y = int(annotation['y2'] * previous_image.height()) - h // 2
+                box = x, y, w, h
+            elif annotation['type'] in ['circle']:
+                x1 = int(annotation["x"] * previous_image.width())
+                y1 = int(annotation["y"] * previous_image.height())
+                x2 = int(annotation["x2"] * previous_image.width())
+                y2 = int(annotation["y2"] * previous_image.height())
+                box = x1, y1, x2 - x1, y2 - y1
+            if box is not None:
                 if self.ui.combo_tracker_provider.currentText() == 'CSRT':
                     param = cv2.TrackerCSRT.Params()
                     param.use_hog = True
@@ -489,16 +548,14 @@ class VideoAnnotationTool(QMainWindow):
 
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
         if self.image_provider is not None:
-            if event.key() == Qt.Key.Key_Left:
+            if event.key() == Qt.Key.Key_Left or event.key() == Qt.Key.Key_A:
                 self.previous_image()
-            elif event.key() == Qt.Key.Key_Right:
+            elif event.key() == Qt.Key.Key_Right or event.key() == Qt.Key.Key_D or event.key() == Qt.Key.Key_Space:
                 self.next_image()
             elif event.key() == Qt.Key.Key_Z and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                 self.undo()
             elif event.key() == Qt.Key.Key_Y and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
                 self.redo()
-            elif event.key() == Qt.Key.Key_Space:
-                self.next_image()
         return super().keyReleaseEvent(event)
 
 

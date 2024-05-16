@@ -4,8 +4,6 @@ from PIL import Image
 from PySide6.QtCore import QBuffer, QIODevice, QObject, QThread
 from PySide6.QtWidgets import QDialog, QProgressBar, QVBoxLayout
 
-import anno_provider  # noqa: F401
-
 
 class RunProviderProgressDialog(QDialog):
     def __init__(self, parent=None):

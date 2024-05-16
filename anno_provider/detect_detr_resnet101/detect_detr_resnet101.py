@@ -32,6 +32,7 @@ class DetectDetrResnet101(object):
         annotations = []
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
             if len(self.keep_labels) > 0 and str(label.item()) not in self.keep_labels:
+                print(f"Skip label {label.item()}.")
                 continue
             box = [round(i, 2) for i in box.tolist()]
             box = [box[0] / image.width, box[1] / image.height, box[2] / image.width, box[3] / image.height]
@@ -47,4 +48,5 @@ class DetectDetrResnet101(object):
             if color is not None:
                 annotation["color"] = color
             annotations.append(annotation)
+        print(f"return {len(annotations)} annotations.")
         return annotations

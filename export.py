@@ -1,4 +1,3 @@
-
 import json
 from PySide6.QtWidgets import QDialog, QProgressBar, QVBoxLayout, QInputDialog, QMessageBox
 from PySide6.QtCore import QObject, QThread, Signal
@@ -30,11 +29,27 @@ class ExportProgressDialog(QDialog):
 class Export(QThread):
     progress_updated = Signal(int)
 
-    def __init__(self, image_provider, image_writer, annotation_dir, parent: QObject | None = ...) -> None:
+    def __init__(
+        self,
+        image_provider,
+        image_writer,
+        annotation_dir,
+        default_color,
+        default_text_color,
+        default_font,
+        default_font_size,
+        default_thickness,
+        parent: QObject | None = ...,
+    ) -> None:
         super().__init__(parent)
         self.image_provider = image_provider
         self.image_writer = image_writer
         self.annotation_dir = annotation_dir
+        self.default_color = default_color
+        self.default_text_color = default_text_color
+        self.default_font = default_font
+        self.default_font_size = default_font_size
+        self.default_thickness = default_thickness
         self.start_index = 0
         self.end_index = 0
         while True:
@@ -71,12 +86,16 @@ class Export(QThread):
             else:
                 annotations = []
             painter = QPainter(image)
-            pen = QPen()
-            pen.setWidth(3)
-            pen.setColor(QColor(0, 255, 0))
-            painter.setPen(pen)
             for annotation in annotations:
-                AnnoLabel.paint_annotation(painter, annotation)
+                AnnoLabel.paint_annotation(
+                    painter,
+                    annotation,
+                    default_color=self.default_color,
+                    default_text_color=self.default_text_color,
+                    default_font=self.default_font,
+                    default_font_size=self.default_font_size,
+                    default_thickness=self.default_thickness,
+                )
             self.image_writer.write(image)
             self.progress_updated.emit(i - self.start_index + 1)
             painter.end()
