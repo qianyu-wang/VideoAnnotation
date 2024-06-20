@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 from PySide6.QtCore import QBuffer, QIODevice, Qt
 from PySide6.QtGui import QImage, QKeyEvent, QColor
-from PySide6.QtWidgets import (QApplication, QColorDialog, QFileDialog,
+from PySide6.QtWidgets import (QApplication, QColorDialog, QFileDialog, QInputDialog,
                                QMainWindow, QMessageBox)
 
 from export import Export
@@ -55,7 +55,7 @@ class VideoProvider(object):
     def __init__(self, filename):
         self.filename = filename
         self.video = cv2.VideoCapture(filename)
-        self.frame_count = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.frame_count = int(round(self.video.get(cv2.CAP_PROP_FRAME_COUNT)))
         self.frame_index = 0
 
     def set_index(self, index):
@@ -87,7 +87,7 @@ class VideoWriter(object):
         self.filename = filename
         src_video = cv2.VideoCapture(src_filename)
         self.video = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), src_video.get(cv2.CAP_PROP_FPS), (int(
-            src_video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(src_video.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+            src_video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(round(src_video.get(cv2.CAP_PROP_FRAME_HEIGHT)))))
         src_video.release()
 
     def write(self, image: QImage):
@@ -139,6 +139,18 @@ class ImageFolderWriter(object):
         pass
 
 
+class CopyTracker(cv2.Tracker):
+    def __init__(self):
+        super().__init__()
+        self.box = None
+
+    def init(self, image, box):
+        self.box = deepcopy(box)
+
+    def update(self, image):
+        return True, self.box
+
+
 class VideoAnnotationTool(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -169,6 +181,21 @@ class VideoAnnotationTool(QMainWindow):
             f"background-color: {self.ui.label_anno.label_fill_color};"
         )
 
+        self.ui.combo_label.clear()
+        self.ui.combo_label.addItem("")
+        self.ui.combo_label.addItem("<New>")
+        self.ui.combo_label.setCurrentIndex(0)
+
+        self.ui.combo_tracker_provider.clear()
+        self.ui.combo_tracker_provider.addItem("")
+        self.ui.combo_tracker_provider.addItem("CSRT")
+        self.ui.combo_tracker_provider.addItem("KCF")
+        self.ui.combo_tracker_provider.addItem("ViT")
+        self.ui.combo_tracker_provider.addItem("Copy")
+        self.ui.combo_tracker_provider.setCurrentIndex(0)
+
+        self.load_provider_list()
+
         self.ui.button_select_file.clicked.connect(self.select_file)
         self.ui.button_select_folder.clicked.connect(self.select_folder)
         self.ui.button_next.clicked.connect(self.next_image)
@@ -189,24 +216,15 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.text_thickness.editingFinished.connect(self.change_thickness)
         self.ui.text_current.returnPressed.connect(self.load_image)
         self.ui.text_current.editingFinished.connect(self.load_image)
-        self.ui.combo_type.currentTextChanged.connect(self.type_changed)
+        self.ui.combo_type.currentIndexChanged.connect(self.type_changed)
         self.ui.label_anno.on_annotation_updated = self.save_annotation
-        self.ui.text_label.textChanged.connect(self.change_label)
+        self.ui.combo_label.currentIndexChanged.connect(self.change_label)
         self.ui.button_label_color.clicked.connect(self.change_label_color)
         self.ui.button_label_fill_color.clicked.connect(self.change_label_fill_color)
         self.ui.text_label_font.returnPressed.connect(self.change_label_font_name)
         self.ui.text_label_font.editingFinished.connect(self.change_label_font_name)
         self.ui.text_label_size.returnPressed.connect(self.change_label_font_size)
         self.ui.text_label_size.editingFinished.connect(self.change_label_font_size)
-
-        self.ui.combo_tracker_provider.clear()
-        self.ui.combo_tracker_provider.addItem("")
-        self.ui.combo_tracker_provider.addItem("CSRT")
-        self.ui.combo_tracker_provider.addItem("KCF")
-        self.ui.combo_tracker_provider.addItem("ViT")
-        self.ui.combo_tracker_provider.setCurrentIndex(0)
-
-        self.load_provider_list()
 
         self.installEventFilter(self)
 
@@ -311,7 +329,18 @@ class VideoAnnotationTool(QMainWindow):
         self.ui.text_thickness.setText(f'{self.ui.label_anno.thickness * 100:.2f}')
 
     def change_label(self):
-        self.ui.label_anno.label = self.ui.text_label.text()
+        label = self.ui.combo_label.currentText()
+        if label == "<New>":
+            text, ok = QInputDialog.getText(self, "Input", "Please input text")
+            if ok:
+                label = text
+                self.ui.combo_label.currentIndexChanged.disconnect(self.change_label)
+                self.ui.combo_label.insertItem(self.ui.combo_label.count() - 1, label)
+                self.ui.combo_label.setCurrentIndex(self.ui.combo_label.count() - 2)
+                self.ui.combo_label.currentIndexChanged.connect(self.change_label)
+            else:
+                return
+        self.ui.label_anno.label = label
 
     def change_label_font_name(self):
         if self.ui.text_label_font.text() != "":
@@ -495,10 +524,10 @@ class VideoAnnotationTool(QMainWindow):
         for annotation in previous_annotations:
             box = None
             if annotation['type'] in ['rectangle']:
-                x1 = int(annotation['x'] * previous_image.width())
-                y1 = int(annotation['y'] * previous_image.height())
-                x2 = int(annotation['x2'] * previous_image.width())
-                y2 = int(annotation["y2"] * previous_image.height())
+                x1 = annotation['x'] * previous_image.width()
+                y1 = annotation['y'] * previous_image.height()
+                x2 = annotation['x2'] * previous_image.width()
+                y2 = annotation["y2"] * previous_image.height()
                 box = x1, y1, x2 - x1, y2 - y1
             elif annotation['type'] in ['point']:
                 w = 30
@@ -507,10 +536,10 @@ class VideoAnnotationTool(QMainWindow):
                 y = int(annotation['y2'] * previous_image.height()) - h // 2
                 box = x, y, w, h
             elif annotation['type'] in ['circle']:
-                x1 = int(annotation["x"] * previous_image.width())
-                y1 = int(annotation["y"] * previous_image.height())
-                x2 = int(annotation["x2"] * previous_image.width())
-                y2 = int(annotation["y2"] * previous_image.height())
+                x1 = annotation["x"] * previous_image.width()
+                y1 = annotation["y"] * previous_image.height()
+                x2 = annotation["x2"] * previous_image.width()
+                y2 = annotation["y2"] * previous_image.height()
                 box = x1, y1, x2 - x1, y2 - y1
             if box is not None:
                 if self.ui.combo_tracker_provider.currentText() == 'CSRT':
@@ -527,6 +556,10 @@ class VideoAnnotationTool(QMainWindow):
                 elif self.ui.combo_tracker_provider.currentText() == 'ViT':
                     param = cv2.TrackerVit.Params()
                     tracker = cv2.TrackerVit.create(param)
+                    tracker.init(cv_previous_image, box)
+                    success, predit_box = tracker.update(cv_current_image)
+                elif self.ui.combo_tracker_provider.currentText() == 'Copy':
+                    tracker = CopyTracker()
                     tracker.init(cv_previous_image, box)
                     success, predit_box = tracker.update(cv_current_image)
                 x, y, w, h = predit_box

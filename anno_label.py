@@ -207,10 +207,10 @@ class AnnoLabel(QLabel):
         if self.image is None or self.image.width() == 0 or self.image.height() == 0:
             return
         regioned_image = self.image.copy(
-            int(self.image.width() * self.image_region[0]),
-            int(self.image.height() * self.image_region[1]),
-            int(self.image.width() * self.image_region[2]),
-            int(self.image.height() * self.image_region[3]),
+            int(round(self.image.width() * self.image_region[0])),
+            int(round(self.image.height() * self.image_region[1])),
+            int(round(self.image.width() * self.image_region[2])),
+            int(round(self.image.height() * self.image_region[3])),
         )
         pixmap = QPixmap.fromImage(
             regioned_image.scaled(
@@ -234,7 +234,7 @@ class AnnoLabel(QLabel):
             pen = QPen()
             pen.setWidth(2)
             pen.setColor(QColor(255, 255, 255, 128))
-            pen.setWidth(int(DEFAULT_THICKNESS * painter.window().height()))
+            pen.setWidth(int(round(DEFAULT_THICKNESS * painter.window().height())))
             pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.drawLine(
@@ -243,13 +243,13 @@ class AnnoLabel(QLabel):
             painter.drawLine(
                 self.current_pos.x(), 0, self.current_pos.x(), self.height()
             )
-            x = int(((self.current_pos.x() / self.width()) * self.image_region[2] + self.image_region[0]) * self.image.width())
-            y = int(((self.current_pos.y() / self.height()) * self.image_region[3] + self.image_region[1]) * self.image.height())
-            text = f"({x},{y})"
+            x = ((self.current_pos.x() / self.width()) * self.image_region[2] + self.image_region[0]) * self.image.width()
+            y = ((self.current_pos.y() / self.height()) * self.image_region[3] + self.image_region[1]) * self.image.height()
+            text = f"({int(round(x))},{int(round(y))})"
             pen.setColor(QColor(255, 255, 255, 255))
             pen.setWidth(2)
             painter.setPen(pen)
-            self.mouse_font.setPixelSize(int(painter.window().height() * DEFAULT_FONT_SIZE))
+            self.mouse_font.setPixelSize(int(round(painter.window().height() * DEFAULT_FONT_SIZE)))
             painter.setFont(self.mouse_font)
             metrics = QFontMetrics(self.mouse_font)
             rect = metrics.boundingRect(text)
@@ -259,7 +259,7 @@ class AnnoLabel(QLabel):
                 x = self.current_pos.x() - rect.width() - 5
             if y > self.height():
                 y = self.current_pos.y() - rect.height() - metrics.descent() - 5
-            painter.drawText(x, y, text)
+            painter.drawText(int(round(x)), int(round(y)), text)
         if self.selected_annotation_index is not None:
             annotation = copy.deepcopy(
                 self.annotation_list[self.selected_annotation_index]
@@ -285,8 +285,8 @@ class AnnoLabel(QLabel):
             )
         if len(self.annotation_list) > 0:
             pen = QPen()
-            pen.setWidth(int(self.thickness * painter.window().height()))
-            pen.setColor(QColor.fromString(self.color))
+            pen.setWidth(int(round(self.thickness * painter.window().height())))
+            pen.setColor(to_color(self.color))
             painter.setPen(pen)
             if self.annotation is not None:
                 status = "drawing other"
@@ -306,8 +306,8 @@ class AnnoLabel(QLabel):
                 )
         if self.annotation is not None:
             pen = QPen()
-            pen.setWidth(int(self.thickness * painter.window().height()))
-            pen.setColor(QColor.fromString(self.color))
+            pen.setWidth(int(round(self.thickness * painter.window().height())))
+            pen.setColor(to_color(self.color))
             painter.setPen(pen)
             self.paint_annotation(
                 painter,
@@ -384,8 +384,8 @@ class AnnoLabel(QLabel):
             self.annotation["x2"] = x
             self.annotation["y2"] = y
             if self.annotation["type"] != "point":
-                w = int((self.annotation["x2"] - self.annotation["x"]) * self.image.width())
-                h = int((self.annotation["y2"] - self.annotation["y"]) * self.image.height())
+                w = (self.annotation["x2"] - self.annotation["x"]) * self.image.width()
+                h = (self.annotation["y2"] - self.annotation["y"]) * self.image.height()
                 if w**2 + h**2 < 4**2:  # 小于4像素的annotation忽略
                     self.annotation = None
                     if self.selected_annotation_index is not None:
@@ -444,18 +444,18 @@ class AnnoLabel(QLabel):
                     text, ok = QInputDialog.getText(self, "Input", "Please input text")
                     if ok:
                         self.annotation["text"] = text
-                        self.annotation["text_color"] = self.text_color.name(QColor.NameFormat.HexArgb)
-                        self.annotation["text_fill_color"] = self.label_fill_color.name(QColor.NameFormat.HexArgb)
+                        self.annotation["text_color"] = self.text_color
+                        self.annotation["text_fill_color"] = self.label_fill_color
                         self.annotation["font_name"] = self.font_name
                         self.annotation["font_size"] = self.font_size
                         if self.annotation["type"] == "text":
                             font = QFont(self.font_name)
                             font.setPixelSize(
-                                int(
+                                int(round(
                                     (self.annotation["y2"] - self.annotation["y"])
                                     * self.height()
                                     * 0.8
-                                )
+                                ))
                             )
                             metrics = QFontMetrics(font)
                             self.annotation["x2"] = (
@@ -585,35 +585,43 @@ class AnnoLabel(QLabel):
         for i in range(len(self.annotation_list)):
             annotation = self.annotation_list[i]
             if annotation["type"] == "point":
-                anno_x = int((annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width())
-                anno_y = int((annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height())
+                anno_x = (annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width()
+                anno_y = (annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height()
                 d = math.sqrt((x - anno_x) ** 2 + (y - anno_y) ** 2)
                 if d < 5:
                     if nearest_d > d:
                         nearest_d = d
                         nearest = i
             elif annotation["type"] == "circle":
-                anno_x = int((annotation["x"] - self.image_region[0]) / self.image_region[2] * self.width())
-                anno_y = int((annotation["y"] - self.image_region[1]) / self.image_region[3] * self.height())
-                anno_x2 = int((annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width())
-                anno_y2 = int((annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height())
-                r = int(math.sqrt((anno_x2 - anno_x) ** 2 + (anno_y2 - anno_y) ** 2))
+                anno_x = ((annotation["x"] - self.image_region[0]) / self.image_region[2] * self.width())
+                anno_y = ((annotation["y"] - self.image_region[1]) / self.image_region[3] * self.height())
+                anno_x2 = ((annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width())
+                anno_y2 = ((annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height())
+                r = math.sqrt((anno_x2 - anno_x) ** 2 + (anno_y2 - anno_y) ** 2)
                 d = math.sqrt((x - anno_x) ** 2 + (y - anno_y) ** 2)
                 if d < r:
                     if nearest_d > d:
                         nearest_d = d
                         nearest = i
             elif annotation["type"] in ["rectangle", "text"]:
-                anno_x = int((annotation["x"] - self.image_region[0]) / self.image_region[2] * self.width())
-                anno_y = int((annotation["y"] - self.image_region[1]) / self.image_region[3] * self.height())
-                anno_x2 = int((annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width())
-                anno_y2 = int((annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height())
+                anno_x = (annotation["x"] - self.image_region[0]) / self.image_region[2] * self.width()
+                anno_y = (annotation["y"] - self.image_region[1]) / self.image_region[3] * self.height()
+                anno_x2 = (annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width()
+                anno_y2 = (annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height()
                 if x >= anno_x and x <= anno_x2 and y >= anno_y and y <= anno_y2:
-                    cx = (anno_x + anno_x2) / 2
-                    cy = (anno_y + anno_y2) / 2
-                    d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-                    if nearest_d > d:
-                        nearest_d = d
+                    if nearest is not None:
+                        nearest_annotation = self.annotation_list[nearest]
+                        nearest_anno_x = (nearest_annotation["x"] - self.image_region[0]) / self.image_region[2] * self.width()
+                        nearest_anno_y = (nearest_annotation["y"] - self.image_region[1]) / self.image_region[3] * self.height()
+                        nearest_anno_x2 = (nearest_annotation["x2"] - self.image_region[0]) / self.image_region[2] * self.width()
+                        nearest_anno_y2 = (nearest_annotation["y2"] - self.image_region[1]) / self.image_region[3] * self.height()
+                        intersection_w = min(anno_x2, nearest_anno_x2) - max(anno_x, nearest_anno_x)
+                        intersection_h = min(anno_y2, nearest_anno_y2) - max(anno_y, nearest_anno_y)
+                        anno_area_ratio = (intersection_w * intersection_h) / ((anno_x2 - anno_x) * (anno_y2 - anno_y))
+                        nearest_anno_area_ratio = (intersection_w * intersection_h) / ((nearest_anno_x2 - nearest_anno_x) * (nearest_anno_y2 - nearest_anno_y))
+                        if nearest_anno_area_ratio < anno_area_ratio:
+                            nearest = i
+                    else:
                         nearest = i
         return nearest
 
@@ -637,51 +645,55 @@ class AnnoLabel(QLabel):
         pen = painter.pen()
         pen.setColor(color)
         painter.setPen(pen)
-        thickness = int(annotation.get("thickness", default_thickness) * painter.window().height())
+        thickness = annotation.get("thickness", default_thickness) * painter.window().height()
         pen = painter.pen()
-        pen.setWidth(thickness)
+        pen.setWidth(int(round(thickness)))
         painter.setPen(pen)
-        x = int((annotation["x"] - region[0]) / region[2] * painter.window().width())
-        y = int((annotation["y"] - region[1]) / region[3] * painter.window().height())
-        x2 = int((annotation["x2"] - region[0]) / region[2] * painter.window().width())
-        y2 = int((annotation["y2"] - region[1]) / region[3] * painter.window().height())
+        x = (annotation["x"] - region[0]) / region[2] * painter.window().width()
+        y = (annotation["y"] - region[1]) / region[3] * painter.window().height()
+        x2 = (annotation["x2"] - region[0]) / region[2] * painter.window().width()
+        y2 = (annotation["y2"] - region[1]) / region[3] * painter.window().height()
         if annotation["type"] == "point":
             path = QPainterPath()
-            path.addEllipse(QPoint(x2, y2), thickness // 2, thickness // 2)
+            path.addEllipse(
+                QPoint(int(round(x2)), int(round(y2))),
+                int(round(thickness / 2)),
+                int(round(thickness / 2)),
+            )
             painter.fillPath(path, color)
         elif annotation["type"] == "circle":
-            painter.drawEllipse(x, y, x2 - x, y2 - y)
+            painter.drawEllipse(int(round(x)), int(round(y)), int(round(x2 - x)), int(round(y2 - y)))
         elif annotation["type"] == "rectangle":
-            painter.drawRect(QRect(x, y, x2 - x, y2 - y))
+            painter.drawRect(QRect(int(round(x)), int(round(y)), int(round(x2 - x)), int(round(y2 - y))))
         elif annotation["type"] == "text" and status == "drawing":
-            painter.drawRect(QRect(x, y, x2 - x, y2 - y))
+            painter.drawRect(QRect(int(round(x)), int(round(y)), int(round(x2 - x)), int(round(y2 - y))))
         if "text" in annotation and annotation["text"] != "":
             text = annotation.get("text", "")
             font_name = annotation.get("font_name", default_font)
             font_size = annotation.get("font_size", default_font_size)
             font = QFont(font_name)
             if annotation["type"] == "text":
-                font.setPixelSize(int((y2 - y) * 0.8))
+                font.setPixelSize(int(round((y2 - y) * 0.8)))
             else:
-                font.setPixelSize(int(painter.window().height() * font_size))
+                font.setPixelSize(int(round(painter.window().height() * font_size)))
             painter.setFont(font)
             metrics = QFontMetrics(font)
             rect = metrics.boundingRect(text)
             if annotation['type'] == 'text':
-                foreground_color = painter.pen().color()
+                foreground_color = painter.pen().color().name(QColor.NameFormat.HexArgb)
             else:
                 if "text_color" in annotation:
-                    foreground_color = to_color(annotation["text_color"])
+                    foreground_color = annotation["text_color"]
                 else:
-                    foreground_color = to_color(default_text_color)
+                    foreground_color = default_text_color
             pen = painter.pen()
-            pen.setColor(foreground_color)
+            pen.setColor(to_color(foreground_color))
             painter.setPen(pen)
             if annotation["type"] == "point":
                 x = x - rect.width() // 2
                 y = y - metrics.descent() - rect.height() // 3
             elif annotation["type"] == "circle":
-                radius = int(math.sqrt((x2 - x) ** 2 + (y2 - y) ** 2))
+                radius = math.sqrt((x2 - x) ** 2 + (y2 - y) ** 2)
                 x = x - rect.width() // 2
                 y = y - radius - metrics.descent()
             elif annotation["type"] == "rectangle":
@@ -690,6 +702,9 @@ class AnnoLabel(QLabel):
                 x = x
                 y = y2 - metrics.descent()
             if "text_fill_color" in annotation:
-                background_color = to_color(annotation["text_fill_color"])
-                painter.fillRect(rect.translated(x, y), background_color)
-            painter.drawText(x, y, text)
+                background_color = annotation["text_fill_color"]
+                painter.fillRect(
+                    rect.translated(int(round(x)), int(round(y))), to_color(background_color)
+                )
+            if len(text) > 0:
+                painter.drawText(int(round(x)), int(round(y)), text)

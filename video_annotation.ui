@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>746</width>
+    <height>758</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -194,7 +194,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QLineEdit" name="text_label"/>
+       <widget class="QComboBox" name="combo_label"/>
       </item>
       <item>
        <widget class="QLabel" name="label_9">
@@ -557,7 +557,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>746</width>
      <height>33</height>
     </rect>
    </property>
